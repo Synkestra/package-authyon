@@ -56,7 +56,10 @@ async function requireAuthStrict(req: AuthedRequest): Promise<void> {
     };
   } catch (err) {
     if (err instanceof AuthyonError && err.status === 401) {
-      throw new AuthyonError(401, { code: "auth.invalid_token", title: "Invalid, expired or revoked token" });
+      throw new AuthyonError(401, {
+        code: "auth.invalid_token",
+        title: "Invalid, expired or revoked token",
+      });
     }
     throw err;
   }
@@ -65,7 +68,11 @@ async function requireAuthStrict(req: AuthedRequest): Promise<void> {
 function bearerFrom(req: AuthedRequest): string {
   const header = req.headers.authorization ?? "";
   const [, token] = header.split(" ");
-  if (!token) throw new AuthyonError(401, { code: "auth.missing_token", title: "Missing Authorization header" });
+  if (!token)
+    throw new AuthyonError(401, {
+      code: "auth.missing_token",
+      title: "Missing Authorization header",
+    });
   return token;
 }
 

@@ -102,4 +102,10 @@ main().catch((err) => {
   console.error("Falha no fluxo de 2FA:", err);
 });
 
-export { checkStatus, enrollAuthenticator, confirmAuthenticator, regenerateRecoveryCodes, completeLoginWithRecoveryCode };
+export {
+  checkStatus,
+  enrollAuthenticator,
+  confirmAuthenticator,
+  regenerateRecoveryCodes,
+  completeLoginWithRecoveryCode,
+};

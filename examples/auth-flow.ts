@@ -5,12 +5,7 @@
  * organizações, logout e tratamento de erros. Não é executado automaticamente
  * — é um guia de referência para copiar/colar no seu app.
  */
-import {
-  AuthyonError,
-  createClient,
-  ErrorCodes,
-  type LoginResult,
-} from "../src/index";
+import { AuthyonError, createClient, ErrorCodes, type LoginResult } from "../src/index";
 
 const authyon = createClient({
   envKey: "pk_test_123", // troque pela sua publishable key
@@ -71,7 +66,10 @@ async function login() {
 
 async function promptForCode(methods: string[], emailHint?: string): Promise<string> {
   // Em um app real isso seria um formulário. Aqui é só ilustrativo.
-  console.log(`Digite o código 2FA (${methods.join(", ")})`, emailHint ? `enviado para ${emailHint}` : "");
+  console.log(
+    `Digite o código 2FA (${methods.join(", ")})`,
+    emailHint ? `enviado para ${emailHint}` : "",
+  );
   return "000000";
 }
 
@@ -107,7 +105,10 @@ async function fetchProfile() {
 
 async function switchToOrganization(slug: string) {
   const orgs = await authyon.organization.list();
-  console.log("Organizações do usuário:", orgs.map((o) => o.slug));
+  console.log(
+    "Organizações do usuário:",
+    orgs.map((o) => o.slug),
+  );
 
   if (orgs.some((o) => o.slug === slug)) {
     await authyon.organization.switch(slug);

@@ -41,7 +41,8 @@ export class AuthyonClient {
   private refreshInFlight: Promise<Session> | null = null;
 
   constructor(options: AuthyonClientOptions) {
-    if (!options.envKey) throw new Error("Authyon: `envKey` is required (pk_live_... / pk_test_...)");
+    if (!options.envKey)
+      throw new Error("Authyon: `envKey` is required (pk_live_... / pk_test_...)");
     this.envKey = options.envKey;
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     this.storage = options.storage ?? defaultStorage();
@@ -88,7 +89,12 @@ export class AuthyonClient {
   }
 
   private setSession(
-    raw: { accessToken: string; refreshToken: string; expiresIn: number; user?: Record<string, unknown> },
+    raw: {
+      accessToken: string;
+      refreshToken: string;
+      expiresIn: number;
+      user?: Record<string, unknown>;
+    },
     event: AuthEvent["type"],
   ): Session {
     const session: Session = {
@@ -108,7 +114,11 @@ export class AuthyonClient {
 
   // ── HTTP core ────────────────────────────────────────────────────────────
 
-  private async request<T>(path: string, options: RequestOptions = {}, isRetry = false): Promise<T> {
+  private async request<T>(
+    path: string,
+    options: RequestOptions = {},
+    isRetry = false,
+  ): Promise<T> {
     const headers: Record<string, string> = {
       "X-Authyon-Env": this.envKey,
       ...options.headers,
@@ -116,7 +126,8 @@ export class AuthyonClient {
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
     if (options.bearer) {
       const token = await this.getAccessToken();
-      if (!token) throw new AuthyonError(401, { code: "auth.not_authenticated", title: "Not authenticated" });
+      if (!token)
+        throw new AuthyonError(401, { code: "auth.not_authenticated", title: "Not authenticated" });
       headers.Authorization = `Bearer ${token}`;
     }
 
@@ -126,7 +137,13 @@ export class AuthyonClient {
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
 
-    if (response.status === 401 && options.bearer && this.autoRefresh && !isRetry && this.getSession()) {
+    if (
+      response.status === 401 &&
+      options.bearer &&
+      this.autoRefresh &&
+      !isRetry &&
+      this.getSession()
+    ) {
       try {
         await this.refresh();
       } catch {
@@ -165,7 +182,10 @@ export class AuthyonClient {
   async login(params: LoginParams): Promise<LoginResult> {
     const { organizationSlug, ...rest } = params;
     const body = organizationSlug ? { ...rest, tenantSlug: organizationSlug } : rest;
-    const data = await this.request<Record<string, unknown>>("/auth/login", { method: "POST", body });
+    const data = await this.request<Record<string, unknown>>("/auth/login", {
+      method: "POST",
+      body,
+    });
     if (data.twoFactorRequired) {
       return data as unknown as LoginResult;
     }
@@ -183,13 +203,16 @@ export class AuthyonClient {
   async refresh(): Promise<Session> {
     if (this.refreshInFlight) return this.refreshInFlight;
     const current = this.getSession();
-    if (!current) throw new AuthyonError(401, { code: "auth.not_authenticated", title: "Not authenticated" });
+    if (!current)
+      throw new AuthyonError(401, { code: "auth.not_authenticated", title: "Not authenticated" });
 
     this.refreshInFlight = this.request<never>("/auth/refresh", {
       method: "POST",
       body: { refreshToken: current.refreshToken },
     })
-      .then((data) => this.setSession({ user: current.user, ...(data as object) } as never, "refreshed"))
+      .then((data) =>
+        this.setSession({ user: current.user, ...(data as object) } as never, "refreshed"),
+      )
       .catch((error) => {
         // A rejected rotation means the refresh token is spent/revoked.
         if (error instanceof AuthyonError && (error.status === 401 || error.status === 403)) {
@@ -214,7 +237,10 @@ export class AuthyonClient {
         if (options.everywhere) {
           await this.request("/auth/logout", { method: "POST", bearer: true });
         } else {
-          await this.request("/auth/logout", { method: "POST", body: { refreshToken: session.refreshToken } });
+          await this.request("/auth/logout", {
+            method: "POST",
+            body: { refreshToken: session.refreshToken },
+          });
         }
       } catch {
         /* revoke best-effort — always clear local state */
@@ -244,7 +270,10 @@ export class AuthyonClient {
      * the endpoint differs, override via a raw call to your own backend.
      */
     revokeSession: (sessionId: string): Promise<void> =>
-      this.request(`/auth/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE", bearer: true }),
+      this.request(`/auth/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "DELETE",
+        bearer: true,
+      }),
 
     /** POST /auth/password-reset/request — always resolves (no account enumeration). */
     requestPasswordReset: (email: string): Promise<void> =>
@@ -252,7 +281,10 @@ export class AuthyonClient {
 
     /** POST /auth/password-reset/confirm — sets a new password and revokes all refresh tokens. */
     confirmPasswordReset: (token: string, newPassword: string): Promise<void> =>
-      this.request("/auth/password-reset/confirm", { method: "POST", body: { token, newPassword } }),
+      this.request("/auth/password-reset/confirm", {
+        method: "POST",
+        body: { token, newPassword },
+      }),
   };
 
   // ── Organization ─────────────────────────────────────────────────────────
@@ -285,7 +317,11 @@ export class AuthyonClient {
 
     /** POST /auth/2fa/authenticator/confirm — returns 10 single-use recovery codes. */
     confirmAuthenticator: (code: string): Promise<{ recoveryCodes: string[] }> =>
-      this.request("/auth/2fa/authenticator/confirm", { method: "POST", bearer: true, body: { code } }),
+      this.request("/auth/2fa/authenticator/confirm", {
+        method: "POST",
+        bearer: true,
+        body: { code },
+      }),
 
     /**
      * POST /auth/2fa/recovery-codes/regenerate — requires a recent step-up

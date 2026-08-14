@@ -40,9 +40,7 @@ export interface TwoFactorChallenge {
   emailHint?: string;
 }
 
-export type LoginResult =
-  | { twoFactorRequired: false; session: Session }
-  | TwoFactorChallenge;
+export type LoginResult = { twoFactorRequired: false; session: Session } | TwoFactorChallenge;
 
 export interface RegisterParams {
   email: string;

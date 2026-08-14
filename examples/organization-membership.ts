@@ -32,7 +32,9 @@ async function authyonManagementRequest<T>(path: string, init: RequestInit = {})
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(`Authyon management API error (${res.status}): ${body.code ?? body.title ?? "unknown"}`);
+    throw new Error(
+      `Authyon management API error (${res.status}): ${body.code ?? body.title ?? "unknown"}`,
+    );
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
@@ -119,7 +121,10 @@ async function removeMember(organizationSlug: string, userId: string) {
 
 // ── Exemplo de rota de backend (Express-like) que o frontend chama ─────────
 
-async function handleCreateOrganizationRoute(req: { userId: string; body: { name: string; slug: string } }) {
+async function handleCreateOrganizationRoute(req: {
+  userId: string;
+  body: { name: string; slug: string };
+}) {
   // req.userId viria de você ter validado o JWT do Authyon nesta requisição
   // (ex.: POST /auth/validate ou verificação local via JWKS).
   const org = await createOrganization({

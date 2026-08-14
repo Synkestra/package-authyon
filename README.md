@@ -56,42 +56,42 @@ const unsubscribe = authyon.onAuthStateChange((event) => {
 
 Métodos de sessão/auth ficam soltos no client; os que giram em torno de um recurso específico ficam agrupados em namespaces (`user`, `organization`, `twoFactor`).
 
-| Método | Endpoint |
-| --- | --- |
-| `register({ email, username, password })` | `POST /auth/register` |
-| `login({ email \| username, password, organizationSlug? })` | `POST /auth/login` |
+| Método                                                                       | Endpoint                   |
+| ---------------------------------------------------------------------------- | -------------------------- |
+| `register({ email, username, password })`                                    | `POST /auth/register`      |
+| `login({ email \| username, password, organizationSlug? })`                  | `POST /auth/login`         |
 | `completeTwoFactorChallenge({ challengeId, code \| recoveryCode, method? })` | `POST /auth/2fa/challenge` |
-| `refresh()` | `POST /auth/refresh` |
-| `logout({ everywhere? })` | `POST /auth/logout` |
-| `introspect(token?)` | `POST /auth/introspect` |
-| `validate(token?)` | `POST /auth/validate` |
+| `refresh()`                                                                  | `POST /auth/refresh`       |
+| `logout({ everywhere? })`                                                    | `POST /auth/logout`        |
+| `introspect(token?)`                                                         | `POST /auth/introspect`    |
+| `validate(token?)`                                                           | `POST /auth/validate`      |
 
 ### `authyon.user`
 
-| Método | Endpoint |
-| --- | --- |
-| `user.me()` | `GET /auth/me` |
-| `user.sessions()` | `GET /auth/sessions` |
-| `user.revokeSession(sessionId)` | `DELETE /auth/sessions/{id}` ⚠️ não confirmado na doc pública, ver nota abaixo |
-| `user.requestPasswordReset(email)` | `POST /auth/password-reset/request` |
-| `user.confirmPasswordReset(token, newPassword)` | `POST /auth/password-reset/confirm` |
+| Método                                          | Endpoint                                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| `user.me()`                                     | `GET /auth/me`                                                                 |
+| `user.sessions()`                               | `GET /auth/sessions`                                                           |
+| `user.revokeSession(sessionId)`                 | `DELETE /auth/sessions/{id}` ⚠️ não confirmado na doc pública, ver nota abaixo |
+| `user.requestPasswordReset(email)`              | `POST /auth/password-reset/request`                                            |
+| `user.confirmPasswordReset(token, newPassword)` | `POST /auth/password-reset/confirm`                                            |
 
 ### `authyon.organization`
 
-| Método | Endpoint |
-| --- | --- |
-| `organization.list()` | `GET /auth/tenants` |
-| `organization.switch(slug)` | `POST /auth/switch-tenant` |
-| `organization.current()` | — (lê `activeOrganization` da sessão em cache, sem chamada de rede) |
+| Método                      | Endpoint                                                            |
+| --------------------------- | ------------------------------------------------------------------- |
+| `organization.list()`       | `GET /auth/tenants`                                                 |
+| `organization.switch(slug)` | `POST /auth/switch-tenant`                                          |
+| `organization.current()`    | — (lê `activeOrganization` da sessão em cache, sem chamada de rede) |
 
 ### `authyon.twoFactor`
 
-| Método | Endpoint |
-| --- | --- |
-| `twoFactor.status()` | `GET /auth/2fa/status` |
-| `twoFactor.setupAuthenticator()` | `POST /auth/2fa/authenticator/setup` |
-| `twoFactor.confirmAuthenticator(code)` | `POST /auth/2fa/authenticator/confirm` |
-| `twoFactor.regenerateRecoveryCodes()` | `POST /auth/2fa/recovery-codes/regenerate` |
+| Método                                 | Endpoint                                   |
+| -------------------------------------- | ------------------------------------------ |
+| `twoFactor.status()`                   | `GET /auth/2fa/status`                     |
+| `twoFactor.setupAuthenticator()`       | `POST /auth/2fa/authenticator/setup`       |
+| `twoFactor.confirmAuthenticator(code)` | `POST /auth/2fa/authenticator/confirm`     |
+| `twoFactor.regenerateRecoveryCodes()`  | `POST /auth/2fa/recovery-codes/regenerate` |
 
 ## Invalidação de token
 
