@@ -12,7 +12,7 @@ export type {
   RegisterParams,
   Session,
   SessionInfo,
-  Tenant,
+  Organization,
   TokenStorage,
   TwoFactorChallenge,
   TwoFactorChallengeParams,

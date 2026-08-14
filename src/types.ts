@@ -1,5 +1,8 @@
-/** Tenant membership as returned by the Authyon API. */
-export interface Tenant {
+/**
+ * Organization membership (the Authyon API calls this a "tenant" on the
+ * wire — the SDK exposes it as "organization").
+ */
+export interface Organization {
   id: string;
   slug: string;
   name?: string;
@@ -11,8 +14,8 @@ export interface User {
   id: string;
   email: string;
   username?: string;
-  tenants?: Tenant[];
-  activeTenant?: Tenant | null;
+  organizations?: Organization[];
+  activeOrganization?: Organization | null;
   permissions?: string[];
 }
 
@@ -52,8 +55,8 @@ export interface LoginParams {
   email?: string;
   username?: string;
   password: string;
-  /** Optional tenant to scope the session to. */
-  tenantSlug?: string;
+  /** Optional organization to scope the session to (sent as `tenantSlug`). */
+  organizationSlug?: string;
 }
 
 export interface TwoFactorChallengeParams {
@@ -94,7 +97,7 @@ export interface IntrospectResult {
 
 export interface ValidateResult {
   user: User;
-  tenant?: Tenant | null;
+  organization?: Organization | null;
 }
 
 export type AuthEvent =

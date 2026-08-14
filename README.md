@@ -21,7 +21,7 @@ const authyon = createClient({ envKey: "pk_live_..." });
 const result = await authyon.login({
   email: "alice@acme.com",
   password: "...",
-  tenantSlug: "acme", // opcional
+  organizationSlug: "acme", // opcional
 });
 
 if (result.twoFactorRequired) {
@@ -57,13 +57,13 @@ const unsubscribe = authyon.onAuthStateChange((event) => {
 | Método | Endpoint |
 | --- | --- |
 | `register({ email, username, password })` | `POST /auth/register` |
-| `login({ email \| username, password, tenantSlug? })` | `POST /auth/login` |
+| `login({ email \| username, password, organizationSlug? })` | `POST /auth/login` |
 | `completeTwoFactorChallenge({ challengeId, code \| recoveryCode, method? })` | `POST /auth/2fa/challenge` |
 | `refresh()` | `POST /auth/refresh` |
 | `logout({ everywhere? })` | `POST /auth/logout` |
 | `me()` | `GET /auth/me` |
-| `tenants()` | `GET /auth/tenants` |
-| `switchTenant(slug)` | `POST /auth/switch-tenant` |
+| `organizations()` | `GET /auth/tenants` |
+| `switchOrganization(slug)` | `POST /auth/switch-tenant` |
 | `sessions()` | `GET /auth/sessions` |
 | `requestPasswordReset(email)` | `POST /auth/password-reset/request` |
 | `confirmPasswordReset(token, newPassword)` | `POST /auth/password-reset/confirm` |

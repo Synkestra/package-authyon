@@ -11,7 +11,7 @@ import type {
   RegisterParams,
   Session,
   SessionInfo,
-  Tenant,
+  Organization,
   TokenStorage,
   TwoFactorChallengeParams,
   TwoFactorStatus,
@@ -156,7 +156,9 @@ export class AuthyonClient {
    * 2FA challenge to complete via `completeTwoFactorChallenge()`.
    */
   async login(params: LoginParams): Promise<LoginResult> {
-    const data = await this.request<Record<string, unknown>>("/auth/login", { method: "POST", body: params });
+    const { organizationSlug, ...rest } = params;
+    const body = organizationSlug ? { ...rest, tenantSlug: organizationSlug } : rest;
+    const data = await this.request<Record<string, unknown>>("/auth/login", { method: "POST", body });
     if (data.twoFactorRequired) {
       return data as unknown as LoginResult;
     }
@@ -218,20 +220,21 @@ export class AuthyonClient {
 
   /** GET /auth/me — fresh profile of the current user. */
   async me(): Promise<User> {
-    return this.request("/auth/me", { bearer: true });
+    const raw = await this.request<Record<string, unknown>>("/auth/me", { bearer: true });
+    return normalizeUser(raw);
   }
 
-  /** GET /auth/tenants — all tenant memberships. */
-  async tenants(): Promise<Tenant[]> {
+  /** GET /auth/tenants — all organization memberships. */
+  async organizations(): Promise<Organization[]> {
     return this.request("/auth/tenants", { bearer: true });
   }
 
-  /** POST /auth/switch-tenant — issues a fresh token scoped to the new tenant. */
-  async switchTenant(tenantSlug: string): Promise<Session> {
+  /** POST /auth/switch-tenant — issues a fresh token scoped to the new organization. */
+  async switchOrganization(organizationSlug: string): Promise<Session> {
     const data = await this.request<never>("/auth/switch-tenant", {
       method: "POST",
       bearer: true,
-      body: { tenantSlug },
+      body: { tenantSlug: organizationSlug },
     });
     return this.setSession(data, "refreshed");
   }
@@ -283,14 +286,28 @@ export class AuthyonClient {
     return this.request("/auth/introspect", { method: "POST", body: { token: accessToken } });
   }
 
-  /** POST /auth/validate — recommended: cross-checks DB state, returns user + tenant. */
+  /** POST /auth/validate — recommended: cross-checks DB state, returns user + organization. */
   async validate(token?: string): Promise<ValidateResult> {
     const accessToken = token ?? (await this.getAccessToken());
-    return this.request("/auth/validate", {
+    const raw = await this.request<Record<string, unknown>>("/auth/validate", {
       method: "POST",
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     });
+    return {
+      user: normalizeUser(raw.user as Record<string, unknown>),
+      organization: (raw.organization ?? raw.tenant ?? null) as Organization | null,
+    };
   }
+}
+
+/** Maps the API's tenant-based wire fields to the SDK's organization naming. */
+function normalizeUser(raw: Record<string, unknown>): User {
+  const { tenants, activeTenant, ...rest } = raw;
+  return {
+    ...(rest as unknown as User),
+    organizations: (raw.organizations ?? tenants) as Organization[] | undefined,
+    activeOrganization: (raw.activeOrganization ?? activeTenant ?? null) as Organization | null,
+  };
 }
 
 /** Convenience factory: `const authyon = createClient({ envKey: "pk_live_..." })`. */
