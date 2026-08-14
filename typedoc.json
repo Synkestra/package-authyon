@@ -1,0 +1,9 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "packages",
+  "entryPoints": ["packages/browser", "packages/server"],
+  "out": "docs",
+  "name": "Authyon SDKs",
+  "excludeExternals": true,
+  "readme": "none"
+}

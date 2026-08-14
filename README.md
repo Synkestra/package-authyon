@@ -9,6 +9,8 @@ Monorepo com os SDKs não-oficiais do [Authyon](https://authyon.com), separados 
 
 A publishable key é segura para expor no navegador — ela só acessa os endpoints públicos de auth. A secret key concede acesso administrativo (criar organização, adicionar membro) e **nunca** deve rodar fora do seu servidor; por isso vive em um pacote separado que não é importável do browser.
 
+Veja [`ARCHITECTURE.md`](./ARCHITECTURE.md) para o porquê dessa divisão e como cada pacote funciona por dentro.
+
 ## Setup
 
 ```bash
@@ -20,6 +22,12 @@ npm run format
 ```
 
 Cada pacote também roda seus próprios scripts (`npm run build` dentro de `packages/browser` ou `packages/server`).
+
+## Documentação
+
+```bash
+npm run docs   # gera referência de API (TypeDoc) dos dois pacotes em ./docs
+```
 
 ## Exemplos
 

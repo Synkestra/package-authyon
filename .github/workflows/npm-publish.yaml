@@ -1,0 +1,67 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Checks out the exact commit the release tag points to (detached
+      # HEAD) — we build and publish precisely what was tagged, not
+      # whatever main happens to be at workflow-run time.
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org/
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Build
+        run: npm run build
+
+      # The release's tag IS the version — e.g. tag "v1.2.3" (or "1.2.3")
+      # sets @authyon/browser and @authyon/server to 1.2.3 in lockstep.
+      - name: Set package versions from the release tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          npm version "$VERSION" --workspaces --no-git-tag-version --allow-same-version
+
+      - name: Publish packages
+        run: npm publish --workspaces --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Reflects the published version back in package.json. Pushed as a
+      # plain (non-force) fast-forward onto main — if main moved since the
+      # tag was cut, this fails loudly instead of overwriting anything.
+      - name: Commit version bump back to main
+        run: |
+          git config user.name "github-actions"
+          git config user.email "ci@github.com"
+          git add packages/*/package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "Versions already match — nothing to commit."
+          else
+            git commit -m "chore(release): publish v${VERSION} [skip ci]"
+            git push origin HEAD:main
+          fi
