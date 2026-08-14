@@ -13,13 +13,13 @@ jobs:
       # Checks out the exact commit the release tag points to (detached
       # HEAD) — we build and publish precisely what was tagged, not
       # whatever main happens to be at workflow-run time.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           registry-url: https://registry.npmjs.org/
 
