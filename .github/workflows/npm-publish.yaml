@@ -12,10 +12,10 @@ jobs:
     steps:
       # Checks out the exact commit the release tag points to (detached
       # HEAD) — we build and publish precisely what was tagged, not
-      # whatever main happens to be at workflow-run time.
+      # whatever main happens to be at workflow-run time. Uses the default
+      # GITHUB_TOKEN (contents: write above is enough for the push-back
+      # step below); no push-triggered workflow exists here to loop into.
       - uses: actions/checkout@v6
-        with:
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
       - uses: actions/setup-node@v5
         with:
