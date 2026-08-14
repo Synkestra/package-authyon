@@ -21,7 +21,14 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          registry-url: https://registry.npmjs.org/
+
+      # Written by hand instead of via setup-node's `registry-url` input —
+      # that generates an .npmrc with the deprecated `always-auth` key,
+      # which recent npm warns will be removed in its next major version.
+      - name: Configure npm registry auth
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install dependencies
         run: npm ci
@@ -48,8 +55,6 @@ jobs:
 
       - name: Publish packages
         run: npm publish --workspaces --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Reflects the published version back in package.json. Pushed as a
       # plain (non-force) fast-forward onto main — if main moved since the
