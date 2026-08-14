@@ -34,7 +34,7 @@ if (result.twoFactorRequired) {
 }
 
 // Usuário atual — o access token é renovado automaticamente quando necessário
-const user = await authyon.me();
+const user = await authyon.user.me();
 ```
 
 ## Sessão e tokens
@@ -54,6 +54,8 @@ const unsubscribe = authyon.onAuthStateChange((event) => {
 
 ## API
 
+Métodos de sessão/auth ficam soltos no client; os que giram em torno de um recurso específico ficam agrupados em namespaces (`user`, `organization`, `twoFactor`).
+
 | Método | Endpoint |
 | --- | --- |
 | `register({ email, username, password })` | `POST /auth/register` |
@@ -61,18 +63,43 @@ const unsubscribe = authyon.onAuthStateChange((event) => {
 | `completeTwoFactorChallenge({ challengeId, code \| recoveryCode, method? })` | `POST /auth/2fa/challenge` |
 | `refresh()` | `POST /auth/refresh` |
 | `logout({ everywhere? })` | `POST /auth/logout` |
-| `me()` | `GET /auth/me` |
-| `organizations()` | `GET /auth/tenants` |
-| `switchOrganization(slug)` | `POST /auth/switch-tenant` |
-| `sessions()` | `GET /auth/sessions` |
-| `requestPasswordReset(email)` | `POST /auth/password-reset/request` |
-| `confirmPasswordReset(token, newPassword)` | `POST /auth/password-reset/confirm` |
+| `introspect(token?)` | `POST /auth/introspect` |
+| `validate(token?)` | `POST /auth/validate` |
+
+### `authyon.user`
+
+| Método | Endpoint |
+| --- | --- |
+| `user.me()` | `GET /auth/me` |
+| `user.sessions()` | `GET /auth/sessions` |
+| `user.revokeSession(sessionId)` | `DELETE /auth/sessions/{id}` ⚠️ não confirmado na doc pública, ver nota abaixo |
+| `user.requestPasswordReset(email)` | `POST /auth/password-reset/request` |
+| `user.confirmPasswordReset(token, newPassword)` | `POST /auth/password-reset/confirm` |
+
+### `authyon.organization`
+
+| Método | Endpoint |
+| --- | --- |
+| `organization.list()` | `GET /auth/tenants` |
+| `organization.switch(slug)` | `POST /auth/switch-tenant` |
+| `organization.current()` | — (lê `activeOrganization` da sessão em cache, sem chamada de rede) |
+
+### `authyon.twoFactor`
+
+| Método | Endpoint |
+| --- | --- |
 | `twoFactor.status()` | `GET /auth/2fa/status` |
 | `twoFactor.setupAuthenticator()` | `POST /auth/2fa/authenticator/setup` |
 | `twoFactor.confirmAuthenticator(code)` | `POST /auth/2fa/authenticator/confirm` |
 | `twoFactor.regenerateRecoveryCodes()` | `POST /auth/2fa/recovery-codes/regenerate` |
-| `introspect(token?)` | `POST /auth/introspect` |
-| `validate(token?)` | `POST /auth/validate` |
+
+## Invalidação de token
+
+- **Sessão atual**: `logout()` revoga o refresh token atual; `logout({ everywhere: true })` revoga todos os refresh tokens do usuário.
+- **Uma sessão específica**: `user.revokeSession(sessionId)`, usando o `id` retornado por `user.sessions()` — derruba um dispositivo sem afetar a sessão atual.
+- **Access token**: por ser um JWT stateless, o access token continua "válido" até expirar (`expiresIn`, tipicamente 30 min) mesmo após revogar o refresh token. Para checar revogação em tempo real no seu backend, use `validate()` (cross-checa o estado no banco) em vez de `introspect()`.
+
+> ⚠️ `user.revokeSession()` usa `DELETE /auth/sessions/{id}`, seguindo o padrão REST do resto da API documentada — não consegui confirmar esse endpoint específico na doc pública (`authyon.com/docs`) no momento em que este SDK foi escrito. Confirme no dashboard/API reference antes de depender dele em produção.
 
 ## Erros
 

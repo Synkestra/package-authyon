@@ -24,7 +24,7 @@ const DEFAULT_BASE_URL = "https://api.authyon.com";
 const EXPIRY_SKEW_MS = 30_000;
 
 interface RequestOptions {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "DELETE" | "PATCH";
   body?: unknown;
   /** Attach the bearer access token (with transparent refresh + one retry on 401). */
   bearer?: boolean;
@@ -87,8 +87,15 @@ export class AuthyonClient {
     for (const listener of this.listeners) listener(event);
   }
 
-  private setSession(raw: { accessToken: string; refreshToken: string; expiresIn: number; user?: User }, event: AuthEvent["type"]): Session {
-    const session: Session = { ...raw, expiresAt: Date.now() + raw.expiresIn * 1000 };
+  private setSession(
+    raw: { accessToken: string; refreshToken: string; expiresIn: number; user?: Record<string, unknown> },
+    event: AuthEvent["type"],
+  ): Session {
+    const session: Session = {
+      ...raw,
+      user: raw.user ? normalizeUser(raw.user) : undefined,
+      expiresAt: Date.now() + raw.expiresIn * 1000,
+    };
     this.storage.set(session);
     this.emit(event === "signed_out" ? { type: "signed_out" } : { type: event, session });
     return session;
@@ -216,45 +223,55 @@ export class AuthyonClient {
     this.clearSession();
   }
 
-  // ── Current user ─────────────────────────────────────────────────────────
+  // ── User ─────────────────────────────────────────────────────────────────
 
-  /** GET /auth/me — fresh profile of the current user. */
-  async me(): Promise<User> {
-    const raw = await this.request<Record<string, unknown>>("/auth/me", { bearer: true });
-    return normalizeUser(raw);
-  }
+  readonly user = {
+    /** GET /auth/me — fresh profile of the current user. */
+    me: (): Promise<User> =>
+      this.request<Record<string, unknown>>("/auth/me", { bearer: true }).then(normalizeUser),
 
-  /** GET /auth/tenants — all organization memberships. */
-  async organizations(): Promise<Organization[]> {
-    return this.request("/auth/tenants", { bearer: true });
-  }
+    /** GET /auth/sessions — active refresh-token sessions with device/IP data. */
+    sessions: (): Promise<SessionInfo[]> => this.request("/auth/sessions", { bearer: true }),
 
-  /** POST /auth/switch-tenant — issues a fresh token scoped to the new organization. */
-  async switchOrganization(organizationSlug: string): Promise<Session> {
-    const data = await this.request<never>("/auth/switch-tenant", {
-      method: "POST",
-      bearer: true,
-      body: { tenantSlug: organizationSlug },
-    });
-    return this.setSession(data, "refreshed");
-  }
+    /**
+     * Revokes a single session by id (e.g. one entry from `sessions()`),
+     * signing that device out without affecting the current one.
+     *
+     * ⚠️ Not directly confirmed against the published API reference at the
+     * time this SDK was written — `DELETE /auth/sessions/{id}` follows the
+     * REST convention the rest of the documented API uses, but verify it
+     * against the Authyon dashboard/API reference before relying on it. If
+     * the endpoint differs, override via a raw call to your own backend.
+     */
+    revokeSession: (sessionId: string): Promise<void> =>
+      this.request(`/auth/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE", bearer: true }),
 
-  /** GET /auth/sessions — active refresh-token sessions with device/IP data. */
-  async sessions(): Promise<SessionInfo[]> {
-    return this.request("/auth/sessions", { bearer: true });
-  }
+    /** POST /auth/password-reset/request — always resolves (no account enumeration). */
+    requestPasswordReset: (email: string): Promise<void> =>
+      this.request("/auth/password-reset/request", { method: "POST", body: { email } }),
 
-  // ── Password reset ───────────────────────────────────────────────────────
+    /** POST /auth/password-reset/confirm — sets a new password and revokes all refresh tokens. */
+    confirmPasswordReset: (token: string, newPassword: string): Promise<void> =>
+      this.request("/auth/password-reset/confirm", { method: "POST", body: { token, newPassword } }),
+  };
 
-  /** POST /auth/password-reset/request — always resolves (no account enumeration). */
-  async requestPasswordReset(email: string): Promise<void> {
-    await this.request("/auth/password-reset/request", { method: "POST", body: { email } });
-  }
+  // ── Organization ─────────────────────────────────────────────────────────
 
-  /** POST /auth/password-reset/confirm — sets a new password and revokes all refresh tokens. */
-  async confirmPasswordReset(token: string, newPassword: string): Promise<void> {
-    await this.request("/auth/password-reset/confirm", { method: "POST", body: { token, newPassword } });
-  }
+  readonly organization = {
+    /** GET /auth/tenants — all organization memberships. */
+    list: (): Promise<Organization[]> => this.request("/auth/tenants", { bearer: true }),
+
+    /** POST /auth/switch-tenant — issues a fresh token scoped to the new organization. */
+    switch: (organizationSlug: string): Promise<Session> =>
+      this.request<never>("/auth/switch-tenant", {
+        method: "POST",
+        bearer: true,
+        body: { tenantSlug: organizationSlug },
+      }).then((data) => this.setSession(data, "refreshed")),
+
+    /** The organization the current session is scoped to, from the cached session — no network call. */
+    current: (): Organization | null => this.getSession()?.user?.activeOrganization ?? null,
+  };
 
   // ── Two-factor management (authenticated) ────────────────────────────────
 
