@@ -17,6 +17,18 @@ jobs:
       # step below); no push-triggered workflow exists here to loop into.
       - uses: actions/checkout@v6
 
+      # Fails fast with a clear message instead of running the whole build
+      # only to hit a cryptic ENEEDAUTH from `npm publish` at the very end.
+      - name: Verify NPM_TOKEN is configured
+        run: |
+          if [ -z "$NPM_TOKEN" ]; then
+            echo "::error::The NPM_TOKEN repository secret is not set (or is empty)."
+            echo "::error::Create an npm Automation token and add it as NPM_TOKEN under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24
