@@ -1,9 +1,10 @@
 /**
- * Exemplo: como o SEU BACKEND verifica o access token enviado pelo frontend.
+ * Exemplo: como o SEU BACKEND verifica o access token enviado pelo frontend,
+ * usando @authyon/server.
  *
- * O @authyon/browser roda no cliente; este arquivo ilustra o lado servidor
- * — ex.: um middleware que protege suas próprias rotas de API usando o
- * token que o frontend manda em `Authorization: Bearer <token>`.
+ * O @authyon/browser roda no cliente; este arquivo ilustra o lado servidor —
+ * ex.: um middleware que protege suas próprias rotas de API usando o token
+ * que o frontend manda em `Authorization: Bearer <token>`.
  *
  * Duas estratégias, com trade-offs diferentes:
  *
@@ -12,10 +13,13 @@
  * 2. `validate(token)` — "recomendado" pela doc: cross-checa o estado no
  *    banco do Authyon, então detecta revogação/expulsão em tempo real, ao
  *    custo de uma chamada de rede a mais por requisição.
+ *
+ * Ambas usam a PUBLISHABLE key (a mesma do frontend) — verificar um token
+ * não exige a secret key, só o CRUD de organização/membros exige.
  */
-import { AuthyonError, createClient } from "../src/index";
+import { AuthyonError, createServerClient } from "../src/index";
 
-const authyon = createClient({ envKey: "pk_test_123" });
+const authyon = createServerClient({ envKey: "pk_test_123" });
 
 // ── Middleware estilo Express ────────────────────────────────────────────────
 
@@ -68,11 +72,12 @@ async function requireAuthStrict(req: AuthedRequest): Promise<void> {
 function bearerFrom(req: AuthedRequest): string {
   const header = req.headers.authorization ?? "";
   const [, token] = header.split(" ");
-  if (!token)
+  if (!token) {
     throw new AuthyonError(401, {
       code: "auth.missing_token",
       title: "Missing Authorization header",
     });
+  }
   return token;
 }
 

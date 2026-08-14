@@ -1,126 +1,27 @@
-# @authyon/browser
+# authyon
 
-SDK JS/TS para o [Authyon](https://authyon.com) — autenticação, sessões, multi-tenant e 2FA, com armazenamento e refresh de tokens transparentes.
+Monorepo com os SDKs não-oficiais do [Authyon](https://authyon.com), separados por onde cada chave pode rodar com segurança.
 
-Cobre todos os endpoints públicos documentados em [authyon.com/docs](https://authyon.com/docs).
+| Pacote                                   | Roda em  | Chave                           | O que faz                                                                             |
+| ---------------------------------------- | -------- | ------------------------------- | ------------------------------------------------------------------------------------- |
+| [`@authyon/browser`](./packages/browser) | Frontend | publishable (`pk_...`)          | Login, 2FA, sessão/refresh automático, troca de organização, reset de senha           |
+| [`@authyon/server`](./packages/server)   | Backend  | publishable + secret (`sk_...`) | Verificação de access token (`introspect`/`validate`) e gestão de organização/membros |
 
-## Instalação
+A publishable key é segura para expor no navegador — ela só acessa os endpoints públicos de auth. A secret key concede acesso administrativo (criar organização, adicionar membro) e **nunca** deve rodar fora do seu servidor; por isso vive em um pacote separado que não é importável do browser.
 
-```bash
-npm install @authyon/browser
-```
-
-## Uso rápido
-
-```ts
-import { createClient } from "@authyon/browser";
-
-const authyon = createClient({ envKey: "pk_live_..." });
-
-// Login (com suporte a 2FA)
-const result = await authyon.login({
-  email: "alice@acme.com",
-  password: "...",
-  organizationSlug: "acme", // opcional
-});
-
-if (result.twoFactorRequired) {
-  const code = prompt(`Código 2FA (${result.methods.join(", ")})`);
-  await authyon.completeTwoFactorChallenge({
-    challengeId: result.challengeId,
-    method: "authenticator",
-    code: code!,
-  });
-}
-
-// Usuário atual — o access token é renovado automaticamente quando necessário
-const user = await authyon.user.me();
-```
-
-## Sessão e tokens
-
-- Tokens persistem em `localStorage` por padrão (`memoryStorage()` ou um `TokenStorage` próprio via opção `storage`).
-- `getAccessToken()` renova o token automaticamente antes de expirar (refresh token é single-use e rotacionado, com single-flight para evitar corridas).
-- Chamadas autenticadas que retornam 401 fazem um refresh e uma retentativa automática.
-
-```ts
-const token = await authyon.getAccessToken(); // sempre válido, ou null se deslogado
-
-const unsubscribe = authyon.onAuthStateChange((event) => {
-  // "signed_in" | "refreshed" | "signed_out"
-  console.log(event.type);
-});
-```
-
-## API
-
-Métodos de sessão/auth ficam soltos no client; os que giram em torno de um recurso específico ficam agrupados em namespaces (`user`, `organization`, `twoFactor`).
-
-| Método                                                                       | Endpoint                   |
-| ---------------------------------------------------------------------------- | -------------------------- |
-| `register({ email, username, password })`                                    | `POST /auth/register`      |
-| `login({ email \| username, password, organizationSlug? })`                  | `POST /auth/login`         |
-| `completeTwoFactorChallenge({ challengeId, code \| recoveryCode, method? })` | `POST /auth/2fa/challenge` |
-| `refresh()`                                                                  | `POST /auth/refresh`       |
-| `logout({ everywhere? })`                                                    | `POST /auth/logout`        |
-| `introspect(token?)`                                                         | `POST /auth/introspect`    |
-| `validate(token?)`                                                           | `POST /auth/validate`      |
-
-### `authyon.user`
-
-| Método                                          | Endpoint                                                                       |
-| ----------------------------------------------- | ------------------------------------------------------------------------------ |
-| `user.me()`                                     | `GET /auth/me`                                                                 |
-| `user.sessions()`                               | `GET /auth/sessions`                                                           |
-| `user.revokeSession(sessionId)`                 | `DELETE /auth/sessions/{id}` ⚠️ não confirmado na doc pública, ver nota abaixo |
-| `user.requestPasswordReset(email)`              | `POST /auth/password-reset/request`                                            |
-| `user.confirmPasswordReset(token, newPassword)` | `POST /auth/password-reset/confirm`                                            |
-
-### `authyon.organization`
-
-| Método                      | Endpoint                                                            |
-| --------------------------- | ------------------------------------------------------------------- |
-| `organization.list()`       | `GET /auth/tenants`                                                 |
-| `organization.switch(slug)` | `POST /auth/switch-tenant`                                          |
-| `organization.current()`    | — (lê `activeOrganization` da sessão em cache, sem chamada de rede) |
-
-### `authyon.twoFactor`
-
-| Método                                 | Endpoint                                   |
-| -------------------------------------- | ------------------------------------------ |
-| `twoFactor.status()`                   | `GET /auth/2fa/status`                     |
-| `twoFactor.setupAuthenticator()`       | `POST /auth/2fa/authenticator/setup`       |
-| `twoFactor.confirmAuthenticator(code)` | `POST /auth/2fa/authenticator/confirm`     |
-| `twoFactor.regenerateRecoveryCodes()`  | `POST /auth/2fa/recovery-codes/regenerate` |
-
-## Invalidação de token
-
-- **Sessão atual**: `logout()` revoga o refresh token atual; `logout({ everywhere: true })` revoga todos os refresh tokens do usuário.
-- **Uma sessão específica**: `user.revokeSession(sessionId)`, usando o `id` retornado por `user.sessions()` — derruba um dispositivo sem afetar a sessão atual.
-- **Access token**: por ser um JWT stateless, o access token continua "válido" até expirar (`expiresIn`, tipicamente 30 min) mesmo após revogar o refresh token. Para checar revogação em tempo real no seu backend, use `validate()` (cross-checa o estado no banco) em vez de `introspect()`.
-
-> ⚠️ `user.revokeSession()` usa `DELETE /auth/sessions/{id}`, seguindo o padrão REST do resto da API documentada — não consegui confirmar esse endpoint específico na doc pública (`authyon.com/docs`) no momento em que este SDK foi escrito. Confirme no dashboard/API reference antes de depender dele em produção.
-
-## Erros
-
-Toda resposta não-2xx vira um `AuthyonError` (problem+json). Compare pelo `code` legível por máquina, nunca pelo `title`:
-
-```ts
-import { AuthyonError, ErrorCodes } from "@authyon/browser";
-
-try {
-  await authyon.register({ email, password });
-} catch (err) {
-  if (err instanceof AuthyonError && err.is(ErrorCodes.EmailTaken)) {
-    // e-mail já cadastrado
-  }
-}
-```
-
-## Build
+## Setup
 
 ```bash
-npm install
-npm run build      # dist/ (ESM + CJS + .d.ts via tsup)
+npm install              # instala as dependências de todos os pacotes (npm workspaces)
+npm run build             # builda @authyon/browser e @authyon/server
 npm run typecheck
+npm run lint
+npm run format
 ```
+
+Cada pacote também roda seus próprios scripts (`npm run build` dentro de `packages/browser` ou `packages/server`).
+
+## Exemplos
+
+- [`packages/browser/examples`](./packages/browser/examples) — fluxos de frontend (login, 2FA, reset de senha, rotas públicas/privadas)
+- [`packages/server/examples`](./packages/server/examples) — fluxos de backend (verificação de token, gestão de organização)
