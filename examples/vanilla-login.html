@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8" />
+    <title>@authyon/browser — exemplo vanilla JS</title>
+  </head>
+  <body>
+    <h1>Login</h1>
+
+    <form id="login-form">
+      <input id="email" type="email" placeholder="E-mail" required />
+      <input id="password" type="password" placeholder="Senha" required />
+      <button type="submit">Entrar</button>
+    </form>
+
+    <form id="twofa-form" hidden>
+      <input id="code" inputmode="numeric" placeholder="Código 2FA" required />
+      <button type="submit">Confirmar</button>
+    </form>
+
+    <button id="logout-btn" hidden>Sair</button>
+
+    <pre id="status">Deslogado.</pre>
+
+    <!--
+      Este exemplo assume um bundler (Vite/webpack) resolvendo o import
+      abaixo para "@authyon/browser" depois de `npm run build`. Rodando
+      direto do src/ do monorepo, ajuste o import para o caminho relativo.
+    -->
+    <script type="module">
+      import { createClient } from "../dist/index.js";
+
+      const authyon = createClient({ envKey: "pk_test_123" });
+
+      const loginForm = document.getElementById("login-form");
+      const twofaForm = document.getElementById("twofa-form");
+      const logoutBtn = document.getElementById("logout-btn");
+      const status = document.getElementById("status");
+
+      let pendingChallengeId = null;
+
+      function render(user) {
+        status.textContent = user
+          ? `Logado como ${user.email}${user.activeOrganization ? ` (${user.activeOrganization.slug})` : ""}`
+          : "Deslogado.";
+        loginForm.hidden = Boolean(user);
+        logoutBtn.hidden = !user;
+        twofaForm.hidden = true;
+      }
+
+      // Reage a qualquer mudança de sessão — inclusive refresh automático em
+      // segundo plano, sem precisar checar manualmente em todo lugar.
+      authyon.onAuthStateChange((event) => {
+        if (event.type === "signed_out") render(null);
+        else render(event.session.user);
+      });
+
+      // Se já havia uma sessão salva (localStorage) de uma visita anterior.
+      const existing = authyon.getSession();
+      if (existing) render(existing.user);
+
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+
+        try {
+          const result = await authyon.login({ email, password });
+          if (result.twoFactorRequired) {
+            pendingChallengeId = result.challengeId;
+            status.textContent = `Digite o código 2FA (${result.methods.join(", ")})`;
+            twofaForm.hidden = false;
+            loginForm.hidden = true;
+          }
+          // Se não precisar de 2FA, o listener onAuthStateChange já atualiza a tela.
+        } catch (err) {
+          status.textContent = `Erro: ${err.code ?? err.message}`;
+        }
+      });
+
+      twofaForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const code = document.getElementById("code").value;
+
+        try {
+          await authyon.completeTwoFactorChallenge({
+            challengeId: pendingChallengeId,
+            code,
+          });
+        } catch (err) {
+          status.textContent = `Código inválido: ${err.code ?? err.message}`;
+        }
+      });
+
+      logoutBtn.addEventListener("click", () => authyon.logout());
+    </script>
+  </body>
+</html>
