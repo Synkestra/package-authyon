@@ -14,10 +14,10 @@
  * exatos de endpoint no momento em que este SDK foi escrito. Confirme no
  * dashboard/API reference do Authyon antes de usar em produção.
  */
-import { createServerClient } from "../src/index";
+import { createClient } from "../src/index";
 
 // sk_live_... — carregue de uma variável de ambiente do servidor; nunca exponha isso no frontend
-const authyon = createServerClient({ secretKey: "sk_test_123" });
+const authyon = createClient({ secretKey: "sk_test_123" });
 
 // ── 1. Criar a organização e o dono inicial ─────────────────────────────────
 

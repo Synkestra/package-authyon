@@ -1,4 +1,4 @@
-export { AuthyonServerClient, createServerClient } from "./client";
+export { AuthyonServerClient, createClient } from "./client";
 export { AuthyonError } from "./errors";
 export type {
   AuthyonServerClientOptions,

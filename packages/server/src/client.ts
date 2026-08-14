@@ -142,7 +142,7 @@ export class AuthyonServerClient {
   };
 }
 
-/** Convenience factory: `const authyon = createServerClient({ secretKey: "sk_live_..." })`. */
-export function createServerClient(options: AuthyonServerClientOptions = {}): AuthyonServerClient {
+/** Convenience factory: `const authyon = createClient({ secretKey: "sk_live_..." })`. */
+export function createClient(options: AuthyonServerClientOptions = {}): AuthyonServerClient {
   return new AuthyonServerClient(options);
 }

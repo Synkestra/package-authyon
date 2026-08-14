@@ -16,15 +16,17 @@ npm install @authyon/server
 | `secretKey` (`sk_...`) | Criar/gerenciar organizações e membros. **Nunca** exponha esta chave ao navegador.                                            |
 
 ```ts
-import { createServerClient } from "@authyon/server";
+import { createClient } from "@authyon/server";
 
-const authyon = createServerClient({
+const authyon = createClient({
   envKey: process.env.AUTHYON_ENV_KEY, // pk_live_...
   secretKey: process.env.AUTHYON_SECRET_KEY, // sk_live_...
 });
 ```
 
 Cada método valida em runtime que a chave necessária foi passada — chamar `organization.create()` sem `secretKey` lança um erro explicativo, não uma falha silenciosa.
+
+> `@authyon/browser` também exporta um `createClient`. Se algum dia precisar dos dois no mesmo arquivo, use um alias no import: `import { createClient as createServerClient } from "@authyon/server"`.
 
 ## Verificação de token
 

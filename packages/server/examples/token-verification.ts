@@ -17,9 +17,9 @@
  * Ambas usam a PUBLISHABLE key (a mesma do frontend) — verificar um token
  * não exige a secret key, só o CRUD de organização/membros exige.
  */
-import { AuthyonError, createServerClient } from "../src/index";
+import { AuthyonError, createClient } from "../src/index";
 
-const authyon = createServerClient({ envKey: "pk_test_123" });
+const authyon = createClient({ envKey: "pk_test_123" });
 
 // ── Middleware estilo Express ────────────────────────────────────────────────
 
