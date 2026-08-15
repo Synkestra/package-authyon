@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Lets npm exchange this for a short-lived, per-run npm auth token
+      # (Trusted Publishing / OIDC) — no NPM_TOKEN secret needed at all.
+      id-token: write
     steps:
       # Checks out the exact commit the release tag points to (detached
       # HEAD) — we build and publish precisely what was tagged, not
@@ -17,38 +20,11 @@ jobs:
       # step below); no push-triggered workflow exists here to loop into.
       - uses: actions/checkout@v6
 
-      # Fails fast with a clear message instead of running the whole build
-      # only to hit a cryptic ENEEDAUTH/404 from `npm publish` at the very end.
-      #
-      # NPM_TOKEN must be a Granular Access Token (npmjs.com > Access Tokens >
-      # Generate New Token > Granular Access Token) with:
-      #   - Packages and scopes: @authyon/browser and @authyon/server (or "All packages")
-      #   - Permissions: Read and write
-      #   - "Bypass 2FA" checked — without this, npm requires an interactive
-      #     OTP on publish, which a CI runner can never provide, and surfaces
-      #     as a confusing 404 rather than an auth error.
-      - name: Verify NPM_TOKEN is configured
-        run: |
-          if [ -z "$NPM_TOKEN" ]; then
-            echo "::error::The NPM_TOKEN repository secret is not set (or is empty)."
-            echo "::error::Create a Granular Access Token (Read and write, Bypass 2FA) and add it as NPM_TOKEN under Settings > Secrets and variables > Actions."
-            exit 1
-          fi
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
-
-      # Written by hand instead of via setup-node's `registry-url` input —
-      # that generates an .npmrc with the deprecated `always-auth` key,
-      # which recent npm warns will be removed in its next major version.
-      - name: Configure npm registry auth
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          registry-url: https://registry.npmjs.org/
 
       - name: Install dependencies
         run: npm ci
@@ -73,6 +49,10 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           npm version "$VERSION" --workspaces --no-git-tag-version --allow-same-version
 
+      # No token, no .npmrc — npm 11.5.1+ detects the GitHub Actions OIDC
+      # context automatically and exchanges it for a short-lived publish
+      # credential, as long as each package has this repo + this workflow
+      # filename registered as a Trusted Publisher on npmjs.com.
       - name: Publish packages
         run: npm publish --workspaces --access public
 
