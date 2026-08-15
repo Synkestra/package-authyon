@@ -12,7 +12,7 @@ npm install @authyon/server
 
 | Chave                  | Uso                                                                                                                           |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `envKey` (`pk_...`)    | Verificar tokens emitidos pelo `@authyon/browser` — `introspect()` / `validate()`. A mesma chave do frontend; não é sensível. |
+| `envKey` (`pk_...`)    | Verificar tokens emitidos pelo `@authyon/auth` — `introspect()` / `validate()`. A mesma chave do frontend; não é sensível. |
 | `secretKey` (`sk_...`) | Criar/gerenciar organizações e membros. **Nunca** exponha esta chave ao navegador.                                            |
 
 ```ts
@@ -26,7 +26,7 @@ const authyon = createClient({
 
 Cada método valida em runtime que a chave necessária foi passada — chamar `organization.create()` sem `secretKey` lança um erro explicativo, não uma falha silenciosa.
 
-> `@authyon/browser` também exporta um `createClient`. Se algum dia precisar dos dois no mesmo arquivo, use um alias no import: `import { createClient as createServerClient } from "@authyon/server"`.
+> `@authyon/auth` também exporta um `createClient`. Se algum dia precisar dos dois no mesmo arquivo, use um alias no import: `import { createClient as createServerClient } from "@authyon/server"`.
 
 ## Verificação de token
 
@@ -47,7 +47,7 @@ await authyon.member.updateScopes(org.slug, userId, ["billing:read"]);
 await authyon.member.remove(org.slug, userId);
 ```
 
-Veja [`examples/organization-membership.ts`](./examples/organization-membership.ts) para o fluxo completo, incluindo as rotas de backend que o `@authyon/browser` chamaria.
+Veja [`examples/organization-membership.ts`](./examples/organization-membership.ts) para o fluxo completo, incluindo as rotas de backend que o `@authyon/auth` chamaria.
 
 > ⚠️ Os endpoints de `organization.*` / `member.*` seguem o padrão REST do restante da API documentada do Authyon, mas não foi possível confirmar nomes exatos de endpoint/campos na doc pública da management API no momento em que este SDK foi escrito. Confirme no dashboard/API reference antes de depender disso em produção.
 

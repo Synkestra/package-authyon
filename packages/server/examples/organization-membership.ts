@@ -4,7 +4,7 @@
  * Roda no SEU BACKEND, nunca no browser: criar uma organização e atribuir
  * scopes/roles são operações de "server-to-server management API", que
  * exigem a SECRET KEY (`sk_...`). A publishable key (`pk_...`) usada pelo
- * @authyon/browser só acessa os endpoints públicos de auth (login, 2FA,
+ * @authyon/auth só acessa os endpoints públicos de auth (login, 2FA,
  * refresh, etc.) — ela nunca deve conseguir conceder acesso a uma organização
  * sozinha, senão qualquer pessoa no navegador poderia se auto-promover.
  *

@@ -42,7 +42,7 @@ jobs:
         run: npm run build
 
       # The release's tag IS the version — e.g. tag "v1.2.3" (or "1.2.3")
-      # sets @authyon/browser and @authyon/server to 1.2.3 in lockstep.
+      # sets @authyon/auth and @authyon/server to 1.2.3 in lockstep.
       - name: Set package versions from the release tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"

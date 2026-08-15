@@ -1,6 +1,6 @@
 /**
  * Exemplo: separar páginas/rotas PÚBLICAS de PRIVADAS no frontend usando
- * @authyon/browser. Framework-agnostic — dá pra plugar isso num router
+ * @authyon/auth. Framework-agnostic — dá pra plugar isso num router
  * (React Router, Vue Router, etc.) ou num app vanilla com poucas adaptações.
  *
  * Público  = não exige sessão (home, login, register, pricing...).

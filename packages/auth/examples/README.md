@@ -1,6 +1,6 @@
-# Exemplos — @authyon/browser
+# Exemplos — @authyon/auth
 
-Guias de referência para copiar/colar — não são testes automatizados. Os `.ts` importam de `../src/index` (rode contra o código fonte); troque para `@authyon/browser` depois de instalar o pacote publicado.
+Guias de referência para copiar/colar — não são testes automatizados. Os `.ts` importam de `../src/index` (rode contra o código fonte); troque para `@authyon/auth` depois de instalar o pacote publicado.
 
 Todos os exemplos aqui rodam no **frontend** (publishable key). Para gestão de organização/membros e verificação de token no backend, veja [`packages/server/examples`](../../server/examples).
 

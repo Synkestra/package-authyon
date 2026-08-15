@@ -2,7 +2,7 @@
  * Exemplo: como o SEU BACKEND verifica o access token enviado pelo frontend,
  * usando @authyon/server.
  *
- * O @authyon/browser roda no cliente; este arquivo ilustra o lado servidor —
+ * O @authyon/auth roda no cliente; este arquivo ilustra o lado servidor —
  * ex.: um middleware que protege suas próprias rotas de API usando o token
  * que o frontend manda em `Authorization: Bearer <token>`.
  *

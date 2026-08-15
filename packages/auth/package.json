@@ -1,5 +1,5 @@
 {
-  "name": "@authyon/browser",
+  "name": "@authyon/auth",
   "version": "0.1.0",
   "description": "Authyon SDK for browsers — auth, sessions, multi-tenant and 2FA for vanilla JS/TS.",
   "license": "MIT",

@@ -1,4 +1,4 @@
-# @authyon/browser
+# @authyon/auth
 
 SDK JS/TS para o [Authyon](https://authyon.com) — autenticação, sessões, multi-tenant e 2FA, com armazenamento e refresh de tokens transparentes.
 
@@ -9,13 +9,13 @@ Para gestão de organização/membros (secret key) e verificação de token no b
 ## Instalação
 
 ```bash
-npm install @authyon/browser
+npm install @authyon/auth
 ```
 
 ## Uso rápido
 
 ```ts
-import { createClient } from "@authyon/browser";
+import { createClient } from "@authyon/auth";
 
 const authyon = createClient({ envKey: "pk_live_..." });
 
@@ -108,7 +108,7 @@ Métodos de sessão/auth ficam soltos no client; os que giram em torno de um rec
 Toda resposta não-2xx vira um `AuthyonError` (problem+json). Compare pelo `code` legível por máquina, nunca pelo `title`:
 
 ```ts
-import { AuthyonError, ErrorCodes } from "@authyon/browser";
+import { AuthyonError, ErrorCodes } from "@authyon/auth";
 
 try {
   await authyon.register({ email, password });

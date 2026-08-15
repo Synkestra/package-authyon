@@ -1,5 +1,5 @@
 /**
- * Exemplo end-to-end de autenticação com @authyon/browser.
+ * Exemplo end-to-end de autenticação com @authyon/auth.
  *
  * Cobre: registro, login (com e sem 2FA), sessão/refresh automático,
  * organizações, logout e tratamento de erros. Não é executado automaticamente

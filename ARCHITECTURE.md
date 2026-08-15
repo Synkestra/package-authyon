@@ -6,7 +6,7 @@ Como o monorepo é organizado e por quê — para quem for mexer no código, nã
 
 Tudo neste repo gira em torno de uma pergunta: **essa operação é segura de rodar num navegador que qualquer pessoa controla?**
 
-|            | `@authyon/browser`                                                                | `@authyon/server`                                                                                                                                      |
+|            | `@authyon/auth`                                                                | `@authyon/server`                                                                                                                                      |
 | ---------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Roda em    | Frontend (navegador do usuário)                                                   | Seu backend                                                                                                                                            |
 | Chave      | Publishable (`pk_...`)                                                            | Publishable **e** secret (`sk_...`)                                                                                                                    |
@@ -21,7 +21,7 @@ packages/
 └── server/    pk_... + sk_...  → verificação de token, CRUD de organização/membros
 ```
 
-## `@authyon/browser` — visão interna
+## `@authyon/auth` — visão interna
 
 ```
 src/
