@@ -1,6 +1,6 @@
 # @authyon/server
 
-SDK server-side para o [Authyon](https://authyon.com) — gestão de organizações/membros (secret key) e verificação de access token (publishable key). Nunca importe este pacote em código de browser.
+SDK server-side para o [Authyon](https://authyon.com) — administração de ambiente/tenants (OAuth client-credentials) e verificação de access token (publishable key). Nunca importe este pacote em código de browser.
 
 ## Instalação
 
@@ -8,23 +8,23 @@ SDK server-side para o [Authyon](https://authyon.com) — gestão de organizaç�
 npm install @authyon/server
 ```
 
-## Duas chaves, dois conjuntos de operações
+## Chaves e credenciais
 
-| Chave                  | Uso                                                                                                                           |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `envKey` (`pk_...`)    | Verificar tokens emitidos pelo `@authyon/auth` — `introspect()` / `validate()`. A mesma chave do frontend; não é sensível. |
-| `secretKey` (`sk_...`) | Criar/gerenciar organizações e membros. **Nunca** exponha esta chave ao navegador.                                            |
+| Credencial                             | Uso                                                                                                                                                                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `envKey` (`pk_...`)                    | Selecionado em **toda** chamada via `X-Authyon-Environment` (Test/Live). Não é sensível — é a mesma chave do frontend, mas sozinha não autoriza nada.                                                                                       |
+| `clientId` / `clientSecret` (ambiente) | Credenciais OAuth client-credentials de nível ambiente, mintadas no console. O SDK troca por um access token (`POST /env/oauth/token`) e o renova sozinho, usado em todo `environment.*` / `permissions.*`. **Nunca** exponha ao navegador. |
+| `clientId` / `clientSecret` (tenant)   | Credenciais por-tenant, usadas via `authyon.tenant({ clientId, clientSecret })` para as chamadas `TenantManagement` (`/tenant/...`).                                                                                                        |
 
 ```ts
 import { createClient } from "@authyon/server";
 
 const authyon = createClient({
   envKey: process.env.AUTHYON_ENV_KEY, // pk_live_...
-  secretKey: process.env.AUTHYON_SECRET_KEY, // sk_live_...
+  clientId: process.env.AUTHYON_CLIENT_ID, // ec_live_...
+  clientSecret: process.env.AUTHYON_CLIENT_SECRET,
 });
 ```
-
-Cada método valida em runtime que a chave necessária foi passada — chamar `organization.create()` sem `secretKey` lança um erro explicativo, não uma falha silenciosa.
 
 > `@authyon/auth` também exporta um `createClient`. Se algum dia precisar dos dois no mesmo arquivo, use um alias no import: `import { createClient as createServerClient } from "@authyon/server"`.
 
@@ -37,19 +37,43 @@ const { user, organization } = await authyon.validate(token); // recomendado —
 
 Veja [`examples/token-verification.ts`](./examples/token-verification.ts) para um middleware completo.
 
-## Gestão de organização
+## Administração de ambiente (`environment.*`)
+
+Usa as credenciais de ambiente (`clientId`/`clientSecret`) automaticamente — o SDK minta e renova o token sozinho.
 
 ```ts
-const org = await authyon.organization.create({ name: "Acme", slug: "acme" });
-await authyon.member.add(org.slug, userId, { role: "owner" });
-await authyon.organization.invite(org.slug, { email: "bob@acme.com", role: "member" });
-await authyon.member.updateScopes(org.slug, userId, ["billing:read"]);
-await authyon.member.remove(org.slug, userId);
+const org = await authyon.environment.tenants.create({ name: "Acme", slug: "acme" });
+await authyon.environment.tenants.members.add(org.id, userId, ["owner"]);
+await authyon.environment.tenants.members.assignRole(org.id, userId, "billing-admin");
+await authyon.environment.tenants.members.remove(org.id, userId);
+
+await authyon.environment.users.list({ search: "acme.com" });
+await authyon.environment.roles.create({ name: "support", permissions: ["tickets:read"] });
+await authyon.environment.audit.list({ take: 50 });
 ```
 
 Veja [`examples/organization-membership.ts`](./examples/organization-membership.ts) para o fluxo completo, incluindo as rotas de backend que o `@authyon/auth` chamaria.
 
-> ⚠️ Os endpoints de `organization.*` / `member.*` seguem o padrão REST do restante da API documentada do Authyon, mas não foi possível confirmar nomes exatos de endpoint/campos na doc pública da management API no momento em que este SDK foi escrito. Confirme no dashboard/API reference antes de depender disso em produção.
+Namespaces disponíveis: `environment.users`, `environment.tenants` (com `.members` e `.roles` aninhados), `environment.roles`, `environment.permissions`, `environment.audit`.
+
+## Administração por tenant (`tenant()`)
+
+As credenciais de um tenant são próprias dele — use `authyon.tenant(credentials)` para obter um cliente escopado, que minta e cacheia seu próprio token via `POST /tenant/oauth/token`:
+
+```ts
+const acme = authyon.tenant({ clientId: acmeClientId, clientSecret: acmeClientSecret });
+
+await acme.members.list();
+await acme.members.add(userId, ["member"]);
+await acme.roles.create({ name: "viewer", permissions: ["reports:read"] });
+```
+
+## Descoberta
+
+```ts
+await authyon.discovery.jwks(); // GET /.well-known/jwks.json
+await authyon.discovery.openidConfiguration(); // GET /.well-known/openid-configuration
+```
 
 ## Build
 

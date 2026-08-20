@@ -1,22 +1,33 @@
 import { AuthyonError } from "./errors";
 import { defaultStorage } from "./storage";
 import type {
+  Activity,
   AuthEvent,
   AuthStateListener,
   AuthenticatorSetup,
   AuthyonClientOptions,
+  CreateOrganizationParams,
   IntrospectResult,
+  InviteMemberParams,
   LoginParams,
   LoginResult,
+  OrganizationMember,
+  PageParams,
   RegisterParams,
+  Role,
   Session,
   SessionInfo,
   Organization,
+  SsoProvider,
   TokenStorage,
-  TwoFactorChallengeParams,
+  TwoFactorMethod,
+  TwoFactorVerifyParams,
   TwoFactorStatus,
   User,
   ValidateResult,
+  WebAuthnAssertion,
+  WebAuthnCeremonyStart,
+  WebAuthnCredential,
 } from "./types";
 
 const DEFAULT_BASE_URL = "https://api.authyon.com";
@@ -120,7 +131,7 @@ export class AuthyonClient {
     isRetry = false,
   ): Promise<T> {
     const headers: Record<string, string> = {
-      "X-Authyon-Env": this.envKey,
+      "X-Authyon-Environment": this.envKey,
       ...options.headers,
     };
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
@@ -177,7 +188,7 @@ export class AuthyonClient {
 
   /**
    * POST /auth/login — authenticates and stores the session, or returns a
-   * 2FA challenge to complete via `completeTwoFactorChallenge()`.
+   * 2FA challenge to complete via `verifyTwoFactor()`.
    */
   async login(params: LoginParams): Promise<LoginResult> {
     const { organizationSlug, ...rest } = params;
@@ -193,9 +204,9 @@ export class AuthyonClient {
     return { twoFactorRequired: false, session };
   }
 
-  /** POST /auth/2fa/challenge — completes a 2FA login and stores the session. */
-  async completeTwoFactorChallenge(params: TwoFactorChallengeParams): Promise<Session> {
-    const data = await this.request<never>("/auth/2fa/challenge", { method: "POST", body: params });
+  /** POST /auth/2fa/verify — redeems a 2FA challenge from `login()` and stores the session. */
+  async verifyTwoFactor(params: TwoFactorVerifyParams): Promise<Session> {
+    const data = await this.request<never>("/auth/2fa/verify", { method: "POST", body: params });
     return this.setSession(data, "signed_in");
   }
 
@@ -249,6 +260,55 @@ export class AuthyonClient {
     this.clearSession();
   }
 
+  // ── Passwordless (passkey) login ─────────────────────────────────────────
+
+  readonly webauthn = {
+    /** POST /auth/webauthn/login/start — begins a passkey sign-in. */
+    loginStart: (email?: string): Promise<WebAuthnCeremonyStart> =>
+      this.request("/auth/webauthn/login/start", { method: "POST", body: { email } }),
+
+    /**
+     * POST /auth/webauthn/login/finish — completes the passkey ceremony and
+     * stores the session.
+     */
+    loginFinish: (assertion: WebAuthnAssertion): Promise<Session> =>
+      this.request<never>("/auth/webauthn/login/finish", {
+        method: "POST",
+        body: assertion,
+      }).then((data) => this.setSession(data, "signed_in")),
+  };
+
+  // ── Social sign-in (SSO) ─────────────────────────────────────────────────
+
+  readonly sso = {
+    /** GET /auth/sso/providers — providers enabled for this environment. */
+    providers: (): Promise<SsoProvider[]> => this.request("/auth/sso/providers"),
+
+    /**
+     * Builds the URL to redirect the browser to in order to start a
+     * provider's sign-in flow (`GET /auth/sso/{provider}/start`). Navigate
+     * to it directly — e.g. `window.location.href = client.sso.startUrl(...)`.
+     */
+    startUrl: (
+      provider: string,
+      params: { redirectUri: string; state?: string; mode?: string },
+    ): string => {
+      const query = new URLSearchParams({ redirect_uri: params.redirectUri });
+      if (params.state) query.set("state", params.state);
+      if (params.mode) query.set("mode", params.mode);
+      return `${this.baseUrl}/auth/sso/${encodeURIComponent(provider)}/start?${query}`;
+    },
+
+    /**
+     * POST /auth/sso/exchange — swaps the one-time code from the provider
+     * callback for tokens and stores the session.
+     */
+    exchange: (code: string): Promise<Session> =>
+      this.request<never>("/auth/sso/exchange", { method: "POST", body: { code } }).then((data) =>
+        this.setSession(data, "signed_in"),
+      ),
+  };
+
   // ── User ─────────────────────────────────────────────────────────────────
 
   readonly user = {
@@ -258,6 +318,10 @@ export class AuthyonClient {
 
     /** GET /auth/sessions — active refresh-token sessions with device/IP data. */
     sessions: (): Promise<SessionInfo[]> => this.request("/auth/sessions", { bearer: true }),
+
+    /** GET /auth/me/activities — recent account activity for the current user. */
+    activities: (params: PageParams = {}): Promise<Activity[]> =>
+      this.request(`/auth/me/activities?${toQuery(params)}`, { bearer: true }),
 
     /**
      * Revokes a single session by id (e.g. one entry from `sessions()`),
@@ -293,6 +357,29 @@ export class AuthyonClient {
     /** GET /auth/tenants — all organization memberships. */
     list: (): Promise<Organization[]> => this.request("/auth/tenants", { bearer: true }),
 
+    /**
+     * POST /auth/tenants — creates an organization owned by the signed-in
+     * user (only available when self-service organization creation is
+     * enabled for the environment).
+     */
+    create: (params: CreateOrganizationParams = {}): Promise<Organization> =>
+      this.request("/auth/tenants", { method: "POST", bearer: true, body: params }),
+
+    /** GET /auth/tenants/{organizationId} — fetch one of the user's organizations by id. */
+    get: (organizationId: string): Promise<Organization> =>
+      this.request(`/auth/tenants/${encodeURIComponent(organizationId)}`, { bearer: true }),
+
+    /**
+     * PATCH /auth/tenants/{organizationId} — renames the organization.
+     * Requires the `tenants:manage` custom permission on it.
+     */
+    rename: (organizationId: string, name: string): Promise<Organization> =>
+      this.request(`/auth/tenants/${encodeURIComponent(organizationId)}`, {
+        method: "PATCH",
+        bearer: true,
+        body: { name },
+      }),
+
     /** POST /auth/switch-tenant — issues a fresh token scoped to the new organization. */
     switch: (organizationSlug: string): Promise<Session> =>
       this.request<never>("/auth/switch-tenant", {
@@ -303,6 +390,38 @@ export class AuthyonClient {
 
     /** The organization the current session is scoped to, from the cached session — no network call. */
     current: (): Organization | null => this.getSession()?.user?.activeOrganization ?? null,
+
+    members: {
+      /** GET /auth/tenants/{organizationId}/members — list an organization's members. */
+      list: (organizationId: string, params: PageParams = {}): Promise<OrganizationMember[]> =>
+        this.request(
+          `/auth/tenants/${encodeURIComponent(organizationId)}/members?${toQuery(params)}`,
+          { bearer: true },
+        ),
+
+      /** POST /auth/tenants/{organizationId}/members — invite a member by e-mail. */
+      invite: (organizationId: string, params: InviteMemberParams): Promise<void> =>
+        this.request(`/auth/tenants/${encodeURIComponent(organizationId)}/members`, {
+          method: "POST",
+          bearer: true,
+          body: params,
+        }),
+
+      /** DELETE /auth/tenants/{organizationId}/members/{userId} — remove a member. */
+      remove: (organizationId: string, userId: string): Promise<void> =>
+        this.request(
+          `/auth/tenants/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(userId)}`,
+          { method: "DELETE", bearer: true },
+        ),
+    },
+
+    roles: {
+      /** GET /auth/tenants/{organizationId}/roles — roles available in the organization. */
+      list: (organizationId: string): Promise<Role[]> =>
+        this.request(`/auth/tenants/${encodeURIComponent(organizationId)}/roles`, {
+          bearer: true,
+        }),
+    },
   };
 
   // ── Two-factor management (authenticated) ────────────────────────────────
@@ -310,6 +429,10 @@ export class AuthyonClient {
   readonly twoFactor = {
     /** GET /auth/2fa/status — enrolled methods and recovery code count. */
     status: (): Promise<TwoFactorStatus> => this.request("/auth/2fa/status", { bearer: true }),
+
+    /** POST /auth/2fa/resend-email — resends the code for an in-flight login challenge. */
+    resendEmail: (challengeToken: string): Promise<void> =>
+      this.request("/auth/2fa/resend-email", { method: "POST", body: { challengeToken } }),
 
     /** POST /auth/2fa/authenticator/setup — returns secret, QR SVG and otpauth URI. */
     setupAuthenticator: (): Promise<AuthenticatorSetup> =>
@@ -324,11 +447,79 @@ export class AuthyonClient {
       }),
 
     /**
-     * POST /auth/2fa/recovery-codes/regenerate — requires a recent step-up
-     * (`X-Authyon-StepUp` cookie set by the API).
+     * POST /auth/2fa/email/enable — two-step opt-in for email-based OTP.
+     * Call without `code` to receive one by e-mail, then call again with
+     * that code to confirm enrolment.
      */
-    regenerateRecoveryCodes: (): Promise<{ recoveryCodes: string[] }> =>
-      this.request("/auth/2fa/recovery-codes/regenerate", { method: "POST", bearer: true }),
+    enableEmail: (code?: string): Promise<void> =>
+      this.request("/auth/2fa/email/enable", { method: "POST", bearer: true, body: { code } }),
+
+    /** POST /auth/2fa/disable — turns off a specific 2FA method (requires current password). */
+    disable: (method: TwoFactorMethod, currentPassword: string): Promise<void> =>
+      this.request("/auth/2fa/disable", {
+        method: "POST",
+        bearer: true,
+        body: { method, currentPassword },
+      }),
+
+    /**
+     * POST /auth/2fa/recovery-codes/regenerate — rotates the 10 single-use
+     * recovery codes (requires current password).
+     */
+    regenerateRecoveryCodes: (currentPassword: string): Promise<{ recoveryCodes: string[] }> =>
+      this.request("/auth/2fa/recovery-codes/regenerate", {
+        method: "POST",
+        bearer: true,
+        body: { currentPassword },
+      }),
+
+    webauthn: {
+      /** POST /auth/2fa/webauthn/register/start — begins passkey enrolment for 2FA. */
+      registerStart: (): Promise<WebAuthnCeremonyStart> =>
+        this.request("/auth/2fa/webauthn/register/start", { method: "POST", bearer: true }),
+
+      /** POST /auth/2fa/webauthn/register/finish — finishes passkey enrolment. */
+      registerFinish: (
+        ceremonyToken: string,
+        attestationJson: string,
+        nickname?: string,
+      ): Promise<WebAuthnCredential> =>
+        this.request("/auth/2fa/webauthn/register/finish", {
+          method: "POST",
+          bearer: true,
+          body: { ceremonyToken, attestationJson, nickname },
+        }),
+
+      /** GET /auth/2fa/webauthn/credentials — the caller's registered passkeys. */
+      credentials: (): Promise<WebAuthnCredential[]> =>
+        this.request("/auth/2fa/webauthn/credentials", { bearer: true }),
+
+      /** PATCH /auth/2fa/webauthn/credentials/{id} — renames a passkey. */
+      renameCredential: (id: string, nickname: string): Promise<WebAuthnCredential> =>
+        this.request(`/auth/2fa/webauthn/credentials/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          bearer: true,
+          body: { nickname },
+        }),
+
+      /** DELETE /auth/2fa/webauthn/credentials/{id} — removes a passkey (requires current password). */
+      removeCredential: (id: string, currentPassword: string): Promise<void> =>
+        this.request(`/auth/2fa/webauthn/credentials/${encodeURIComponent(id)}`, {
+          method: "DELETE",
+          bearer: true,
+          body: { currentPassword },
+        }),
+
+      /**
+       * POST /auth/2fa/webauthn/assertion/start — fetches WebAuthn assertion
+       * options for an in-flight login challenge (2FA method `"webauthn"`).
+       */
+      assertionStart: (challengeToken: string): Promise<WebAuthnCeremonyStart> =>
+        this.request("/auth/2fa/webauthn/assertion/start", {
+          method: "POST",
+          body: { challengeToken },
+        }),
+    },
   };
 
   // ── Token verification ───────────────────────────────────────────────────
@@ -366,4 +557,12 @@ function normalizeUser(raw: Record<string, unknown>): User {
 /** Convenience factory: `const authyon = createClient({ envKey: "pk_live_..." })`. */
 export function createClient(options: AuthyonClientOptions): AuthyonClient {
   return new AuthyonClient(options);
+}
+
+function toQuery(params: object): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) query.set(key, String(value));
+  }
+  return query.toString();
 }
