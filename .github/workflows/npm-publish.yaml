@@ -49,12 +49,23 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           npm version "$VERSION" --workspaces --no-git-tag-version --allow-same-version
 
+      # Published one workspace at a time, by name, rather than a blanket
+      # `--workspaces` — that command stops at the first failure (e.g. one
+      # package already published at this version) and silently skips the
+      # rest, and a plain `npm publish` at repo root would try to publish
+      # the whole monorepo under whichever name happens to be in the root
+      # package.json (this bit us once: @authyon/auth 0.1.0–0.1.2 on npm
+      # are the entire repo, not the built SDK — see ARCHITECTURE.md).
+      #
       # No token, no .npmrc — npm 11.5.1+ detects the GitHub Actions OIDC
       # context automatically and exchanges it for a short-lived publish
       # credential, as long as each package has this repo + this workflow
       # filename registered as a Trusted Publisher on npmjs.com.
-      - name: Publish packages
-        run: npm publish --workspaces --access public
+      - name: Publish @authyon/auth
+        run: npm run publish:auth
+
+      - name: Publish @authyon/server
+        run: npm run publish:server
 
       # Reflects the published version back in package.json. Pushed as a
       # plain (non-force) fast-forward onto main — if main moved since the

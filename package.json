@@ -13,7 +13,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "docs": "typedoc"
+    "docs": "typedoc",
+    "publish:auth": "npm publish --workspace @authyon/auth --access public",
+    "publish:server": "npm publish --workspace @authyon/server --access public"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
