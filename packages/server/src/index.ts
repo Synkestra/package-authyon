@@ -1,14 +1,24 @@
-export { AuthyonServerClient, createClient } from "./client";
+export { AuthyonServerClient, TenantScopedClient, createClient } from "./client";
 export { AuthyonError } from "./errors";
 export type {
+  AuditEvent,
   AuthyonServerClientOptions,
+  ClientCredentials,
   CreateOrganizationInput,
-  Invite,
-  InviteInput,
+  CreatePermissionInput,
+  CreateUserInput,
   IntrospectResult,
+  JsonWebKeySet,
+  LoginActivity,
   Member,
-  MemberInput,
+  OpenIdConfiguration,
   Organization,
+  PageParams,
+  Permission,
+  Role,
+  RoleInput,
+  TokenResult,
+  UpdateOrganizationInput,
   User,
   ValidateResult,
 } from "./types";

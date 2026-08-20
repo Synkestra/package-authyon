@@ -51,8 +51,8 @@ async function login() {
   if (result.twoFactorRequired) {
     // Peça o código ao usuário (app autenticador, e-mail, ou recovery code).
     const code = await promptForCode(result.methods, result.emailHint);
-    const session = await authyon.completeTwoFactorChallenge({
-      challengeId: result.challengeId,
+    const session = await authyon.verifyTwoFactor({
+      challengeToken: result.challengeToken,
       method: result.methods[0],
       code,
     });
