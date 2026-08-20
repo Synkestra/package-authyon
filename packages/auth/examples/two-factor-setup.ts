@@ -53,20 +53,16 @@ async function confirmAuthenticator(codeFromApp: string) {
   }
 }
 
-// ── 4. Regenerar recovery codes (requer step-up recente) ────────────────────
+// ── 4. Regenerar recovery codes (requer a senha atual) ──────────────────────
 
-async function regenerateRecoveryCodes() {
+async function regenerateRecoveryCodes(currentPassword: string) {
   try {
-    const { recoveryCodes } = await authyon.twoFactor.regenerateRecoveryCodes();
+    const { recoveryCodes } = await authyon.twoFactor.regenerateRecoveryCodes(currentPassword);
     console.log("Novos recovery codes (os antigos foram invalidados):", recoveryCodes);
     return recoveryCodes;
   } catch (err) {
     if (err instanceof AuthyonError && err.status === 401) {
-      // A API exige um "step-up" (reautenticação recente) para essa operação
-      // sensível — normalmente sinalizado via cookie X-Authyon-StepUp.
-      // Peça para o usuário confirmar a senha (ou o próprio 2FA) de novo
-      // antes de tentar esta chamada.
-      console.error("Reautentique o usuário antes de regenerar os recovery codes.");
+      console.error("Senha incorreta — peça para o usuário confirmá-la de novo.");
     }
     throw err;
   }
@@ -75,13 +71,13 @@ async function regenerateRecoveryCodes() {
 // ── 5. Completar um login que exigiu 2FA ────────────────────────────────────
 // (fluxo completo de login está em auth-flow.ts — aqui é só o passo de 2FA)
 
-async function completeLoginWithRecoveryCode(challengeId: string, recoveryCode: string) {
+async function completeLoginWithRecoveryCode(challengeToken: string, recoveryCode: string) {
   // Alternativa ao código do app: usar um recovery code de uso único quando
-  // o usuário perdeu acesso ao autenticador.
-  const session = await authyon.completeTwoFactorChallenge({
-    challengeId,
+  // o usuário perdeu acesso ao autenticador (aceito no mesmo campo `code`).
+  const session = await authyon.verifyTwoFactor({
+    challengeToken,
     method: "authenticator",
-    recoveryCode,
+    code: recoveryCode,
   });
   console.log("Login concluído via recovery code para", session.user?.email);
   return session;

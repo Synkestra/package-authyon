@@ -28,8 +28,8 @@ const result = await authyon.login({
 
 if (result.twoFactorRequired) {
   const code = prompt(`Código 2FA (${result.methods.join(", ")})`);
-  await authyon.completeTwoFactorChallenge({
-    challengeId: result.challengeId,
+  await authyon.verifyTwoFactor({
+    challengeToken: result.challengeToken,
     method: "authenticator",
     code: code!,
   });
@@ -56,52 +56,82 @@ const unsubscribe = authyon.onAuthStateChange((event) => {
 
 ## API
 
-Métodos de sessão/auth ficam soltos no client; os que giram em torno de um recurso específico ficam agrupados em namespaces (`user`, `organization`, `twoFactor`).
+Métodos de sessão/auth ficam soltos no client; os que giram em torno de um recurso específico ficam agrupados em namespaces (`user`, `organization`, `twoFactor`, `webauthn`, `sso`).
 
-| Método                                                                       | Endpoint                   |
-| ---------------------------------------------------------------------------- | -------------------------- |
-| `register({ email, username, password })`                                    | `POST /auth/register`      |
-| `login({ email \| username, password, organizationSlug? })`                  | `POST /auth/login`         |
-| `completeTwoFactorChallenge({ challengeId, code \| recoveryCode, method? })` | `POST /auth/2fa/challenge` |
-| `refresh()`                                                                  | `POST /auth/refresh`       |
-| `logout({ everywhere? })`                                                    | `POST /auth/logout`        |
-| `introspect(token?)`                                                         | `POST /auth/introspect`    |
-| `validate(token?)`                                                           | `POST /auth/validate`      |
+| Método                                                                   | Endpoint                |
+| ------------------------------------------------------------------------ | ----------------------- |
+| `register({ email, username, password })`                                | `POST /auth/register`   |
+| `login({ email \| username, password, organizationSlug? })`              | `POST /auth/login`      |
+| `verifyTwoFactor({ challengeToken, method, code?, webAuthnAssertion? })` | `POST /auth/2fa/verify` |
+| `refresh()`                                                              | `POST /auth/refresh`    |
+| `logout({ everywhere? })`                                                | `POST /auth/logout`     |
+| `introspect(token?)`                                                     | `POST /auth/introspect` |
+| `validate(token?)`                                                       | `POST /auth/validate`   |
 
 ### `authyon.user`
 
-| Método                                          | Endpoint                                                                       |
-| ----------------------------------------------- | ------------------------------------------------------------------------------ |
-| `user.me()`                                     | `GET /auth/me`                                                                 |
-| `user.sessions()`                               | `GET /auth/sessions`                                                           |
-| `user.revokeSession(sessionId)`                 | `DELETE /auth/sessions/{id}` ⚠️ não confirmado na doc pública, ver nota abaixo |
-| `user.requestPasswordReset(email)`              | `POST /auth/password-reset/request`                                            |
-| `user.confirmPasswordReset(token, newPassword)` | `POST /auth/password-reset/confirm`                                            |
+| Método                                          | Endpoint                            |
+| ----------------------------------------------- | ----------------------------------- |
+| `user.me()`                                     | `GET /auth/me`                      |
+| `user.sessions()`                               | `GET /auth/sessions`                |
+| `user.revokeSession(sessionId)`                 | `DELETE /auth/sessions/{id}`        |
+| `user.activities(params?)`                      | `GET /auth/me/activities`           |
+| `user.requestPasswordReset(email)`              | `POST /auth/password-reset/request` |
+| `user.confirmPasswordReset(token, newPassword)` | `POST /auth/password-reset/confirm` |
 
 ### `authyon.organization`
 
-| Método                      | Endpoint                                                            |
-| --------------------------- | ------------------------------------------------------------------- |
-| `organization.list()`       | `GET /auth/tenants`                                                 |
-| `organization.switch(slug)` | `POST /auth/switch-tenant`                                          |
-| `organization.current()`    | — (lê `activeOrganization` da sessão em cache, sem chamada de rede) |
+| Método                                                | Endpoint                                       |
+| ----------------------------------------------------- | ---------------------------------------------- |
+| `organization.list()`                                 | `GET /auth/tenants`                            |
+| `organization.create(params?)`                        | `POST /auth/tenants`                           |
+| `organization.get(organizationId)`                    | `GET /auth/tenants/{id}`                       |
+| `organization.rename(organizationId, name)`           | `PATCH /auth/tenants/{id}`                     |
+| `organization.switch(slug)`                           | `POST /auth/switch-tenant`                     |
+| `organization.current()`                              | — (lê `activeOrganization` da sessão em cache) |
+| `organization.members.list(organizationId, params?)`  | `GET /auth/tenants/{id}/members`               |
+| `organization.members.invite(organizationId, params)` | `POST /auth/tenants/{id}/members`              |
+| `organization.members.remove(organizationId, userId)` | `DELETE /auth/tenants/{id}/members/{userId}`   |
+| `organization.roles.list(organizationId)`             | `GET /auth/tenants/{id}/roles`                 |
 
 ### `authyon.twoFactor`
 
-| Método                                 | Endpoint                                   |
-| -------------------------------------- | ------------------------------------------ |
-| `twoFactor.status()`                   | `GET /auth/2fa/status`                     |
-| `twoFactor.setupAuthenticator()`       | `POST /auth/2fa/authenticator/setup`       |
-| `twoFactor.confirmAuthenticator(code)` | `POST /auth/2fa/authenticator/confirm`     |
-| `twoFactor.regenerateRecoveryCodes()`  | `POST /auth/2fa/recovery-codes/regenerate` |
+| Método                                               | Endpoint                                     |
+| ---------------------------------------------------- | -------------------------------------------- |
+| `twoFactor.status()`                                 | `GET /auth/2fa/status`                       |
+| `twoFactor.resendEmail(challengeToken)`              | `POST /auth/2fa/resend-email`                |
+| `twoFactor.setupAuthenticator()`                     | `POST /auth/2fa/authenticator/setup`         |
+| `twoFactor.confirmAuthenticator(code)`               | `POST /auth/2fa/authenticator/confirm`       |
+| `twoFactor.enableEmail(code?)`                       | `POST /auth/2fa/email/enable`                |
+| `twoFactor.disable(method, currentPassword)`         | `POST /auth/2fa/disable`                     |
+| `twoFactor.regenerateRecoveryCodes(currentPassword)` | `POST /auth/2fa/recovery-codes/regenerate`   |
+| `twoFactor.webauthn.registerStart()`                 | `POST /auth/2fa/webauthn/register/start`     |
+| `twoFactor.webauthn.registerFinish(...)`             | `POST /auth/2fa/webauthn/register/finish`    |
+| `twoFactor.webauthn.credentials()`                   | `GET /auth/2fa/webauthn/credentials`         |
+| `twoFactor.webauthn.renameCredential(id, nickname)`  | `PATCH /auth/2fa/webauthn/credentials/{id}`  |
+| `twoFactor.webauthn.removeCredential(id, pwd)`       | `DELETE /auth/2fa/webauthn/credentials/{id}` |
+| `twoFactor.webauthn.assertionStart(challengeToken)`  | `POST /auth/2fa/webauthn/assertion/start`    |
+
+### `authyon.webauthn` (login sem senha)
+
+| Método                            | Endpoint                           |
+| --------------------------------- | ---------------------------------- |
+| `webauthn.loginStart(email?)`     | `POST /auth/webauthn/login/start`  |
+| `webauthn.loginFinish(assertion)` | `POST /auth/webauthn/login/finish` |
+
+### `authyon.sso` (login social)
+
+| Método                           | Endpoint                                                                              |
+| -------------------------------- | ------------------------------------------------------------------------------------- |
+| `sso.providers()`                | `GET /auth/sso/providers`                                                             |
+| `sso.startUrl(provider, params)` | monta a URL de `GET /auth/sso/{provider}/start` (não faz a chamada — navegue até ela) |
+| `sso.exchange(code)`             | `POST /auth/sso/exchange`                                                             |
 
 ## Invalidação de token
 
 - **Sessão atual**: `logout()` revoga o refresh token atual; `logout({ everywhere: true })` revoga todos os refresh tokens do usuário.
 - **Uma sessão específica**: `user.revokeSession(sessionId)`, usando o `id` retornado por `user.sessions()` — derruba um dispositivo sem afetar a sessão atual.
 - **Access token**: por ser um JWT stateless, o access token continua "válido" até expirar (`expiresIn`, tipicamente 30 min) mesmo após revogar o refresh token. Para checar revogação em tempo real no seu backend, use `validate()` (cross-checa o estado no banco) em vez de `introspect()`.
-
-> ⚠️ `user.revokeSession()` usa `DELETE /auth/sessions/{id}`, seguindo o padrão REST do resto da API documentada — não consegui confirmar esse endpoint específico na doc pública (`authyon.com/docs`) no momento em que este SDK foi escrito. Confirme no dashboard/API reference antes de depender dele em produção.
 
 ## Erros
 

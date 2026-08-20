@@ -6,7 +6,33 @@ export interface Organization {
   id: string;
   slug: string;
   name?: string;
+  description?: string;
   roles?: string[];
+}
+
+/** POST /auth/tenants — creates an organization owned by the signed-in user. */
+export interface CreateOrganizationParams {
+  name?: string;
+  slug?: string;
+  description?: string;
+}
+
+export interface OrganizationMember {
+  userId: string;
+  email?: string;
+  roles?: string[];
+}
+
+/** POST /auth/tenants/{tenantId}/members — invites a member by e-mail. */
+export interface InviteMemberParams {
+  email: string;
+  roles: string[];
+}
+
+/** Pagination options accepted by list endpoints. */
+export interface PageParams {
+  skip?: number;
+  take?: number;
 }
 
 /** Authenticated user profile. */
@@ -30,12 +56,12 @@ export interface Session {
   user?: User;
 }
 
-export type TwoFactorMethod = "authenticator" | "email" | string;
+export type TwoFactorMethod = "authenticator" | "email" | "webauthn" | string;
 
 /** Returned by `login()` when the account has 2FA enabled. */
 export interface TwoFactorChallenge {
   twoFactorRequired: true;
-  challengeId: string;
+  challengeToken: string;
   methods: TwoFactorMethod[];
   emailHint?: string;
 }
@@ -57,13 +83,21 @@ export interface LoginParams {
   organizationSlug?: string;
 }
 
-export interface TwoFactorChallengeParams {
-  challengeId: string;
-  method?: TwoFactorMethod;
-  /** TOTP / email code. */
+/** A completed WebAuthn ceremony, handed back to the server to finish login/registration. */
+export interface WebAuthnAssertion {
+  ceremonyToken: string;
+  /** JSON-serialized `PublicKeyCredential` returned by `navigator.credentials.get()`. */
+  assertionJson: string;
+}
+
+/** POST /auth/2fa/verify — redeems a challenge from `login()`. */
+export interface TwoFactorVerifyParams {
+  challengeToken: string;
+  method: TwoFactorMethod;
+  /** TOTP / email / recovery code. Omit when `method` is `"webauthn"`. */
   code?: string;
-  /** Single-use recovery code (alternative to `code`). */
-  recoveryCode?: string;
+  /** Required when `method` is `"webauthn"`. */
+  webAuthnAssertion?: WebAuthnAssertion;
 }
 
 export interface TwoFactorStatus {
@@ -75,6 +109,50 @@ export interface AuthenticatorSetup {
   secret: string;
   qrSvg: string;
   otpauthUri: string;
+}
+
+/**
+ * Options handed back by a WebAuthn "start" endpoint: a ceremony token to
+ * correlate the "finish" call, plus the WebAuthn options object to pass into
+ * `navigator.credentials.get()` / `.create()` (after `JSON.parse`, per the
+ * WebAuthn spec — challenge/user.id are base64url strings on the wire).
+ *
+ * ⚠️ The exact shape of `options` is not published in the OpenAPI schema (no
+ * response bodies are documented for any endpoint at the time this SDK was
+ * written) — treat it as opaque input to the WebAuthn API.
+ */
+export interface WebAuthnCeremonyStart {
+  ceremonyToken: string;
+  options: unknown;
+}
+
+export interface WebAuthnCredential {
+  id: string;
+  nickname?: string;
+  createdAt?: string;
+}
+
+export interface SsoProvider {
+  name: string;
+  slug: string;
+  /** URL to redirect the browser to in order to start this provider's flow. */
+  startUrl: string;
+}
+
+export interface Activity {
+  id: string;
+  type: string;
+  createdAt: string;
+  ip?: string;
+  device?: string;
+}
+
+/** A role available within an organization (tenant). */
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  permissions?: string[];
 }
 
 export interface SessionInfo {
@@ -89,8 +167,10 @@ export interface SessionInfo {
 export interface IntrospectResult {
   active: boolean;
   sub?: string;
-  exp?: number;
+  client_id?: string;
   scope?: string;
+  exp?: number;
+  token_type?: string;
 }
 
 export interface ValidateResult {

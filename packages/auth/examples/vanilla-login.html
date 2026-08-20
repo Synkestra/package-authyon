@@ -37,7 +37,8 @@
       const logoutBtn = document.getElementById("logout-btn");
       const status = document.getElementById("status");
 
-      let pendingChallengeId = null;
+      let pendingChallengeToken = null;
+      let pendingMethod = null;
 
       function render(user) {
         status.textContent = user
@@ -67,7 +68,8 @@
         try {
           const result = await authyon.login({ email, password });
           if (result.twoFactorRequired) {
-            pendingChallengeId = result.challengeId;
+            pendingChallengeToken = result.challengeToken;
+            pendingMethod = result.methods[0];
             status.textContent = `Digite o código 2FA (${result.methods.join(", ")})`;
             twofaForm.hidden = false;
             loginForm.hidden = true;
@@ -83,8 +85,9 @@
         const code = document.getElementById("code").value;
 
         try {
-          await authyon.completeTwoFactorChallenge({
-            challengeId: pendingChallengeId,
+          await authyon.verifyTwoFactor({
+            challengeToken: pendingChallengeToken,
+            method: pendingMethod,
             code,
           });
         } catch (err) {

@@ -1,49 +1,53 @@
 /**
- * Exemplo: gestão de organização/membros com @authyon/server.
+ * Exemplo: gestão de organização (tenant) e membros com @authyon/server.
  *
- * Roda no SEU BACKEND, nunca no browser: criar uma organização e atribuir
- * scopes/roles são operações de "server-to-server management API", que
- * exigem a SECRET KEY (`sk_...`). A publishable key (`pk_...`) usada pelo
- * @authyon/auth só acessa os endpoints públicos de auth (login, 2FA,
- * refresh, etc.) — ela nunca deve conseguir conceder acesso a uma organização
- * sozinha, senão qualquer pessoa no navegador poderia se auto-promover.
- *
- * ⚠️ Os paths/campos usados por `authyon.organization.*` e `authyon.member.*`
- * seguem o padrão REST do restante da API documentada, mas não consegui
- * abrir a página de "API reference" da management API para confirmar nomes
- * exatos de endpoint no momento em que este SDK foi escrito. Confirme no
- * dashboard/API reference do Authyon antes de usar em produção.
+ * Roda no SEU BACKEND, nunca no browser: essas chamadas usam credenciais
+ * OAuth client-credentials de nível ambiente (`clientId`/`clientSecret`,
+ * mintadas no console) — o SDK troca por um access token automaticamente
+ * (`POST /env/oauth/token`) e o renova sozinho. A publishable key
+ * (`envKey`) continua obrigatória em toda chamada, pois seleciona o
+ * ambiente (Test/Live); ela sozinha nunca autoriza nada.
  */
 import { createClient } from "../src/index";
 
-// sk_live_... — carregue de uma variável de ambiente do servidor; nunca exponha isso no frontend
-const authyon = createClient({ secretKey: "sk_test_123" });
+// clientId/clientSecret de ambiente — carregue de variáveis de ambiente do
+// servidor; nunca exponha isso no frontend.
+const authyon = createClient({
+  envKey: "pk_test_123",
+  clientId: "ec_test_123",
+  clientSecret: process.env.AUTHYON_CLIENT_SECRET,
+});
 
 // ── 1. Criar a organização e o dono inicial ─────────────────────────────────
 
 async function createOrganizationWithOwner(name: string, slug: string, ownerUserId: string) {
-  const org = await authyon.organization.create({ name, slug });
-  await authyon.member.add(org.slug, ownerUserId, { role: "owner" });
+  const org = await authyon.environment.tenants.create({ name, slug });
+  await authyon.environment.tenants.members.add(org.id, ownerUserId, ["owner"]);
   return org;
 }
 
-// ── 2. Convidar por e-mail (usuário ainda não existe / ainda não é membro) ──
+// ── 2. Adicionar um membro já existente ─────────────────────────────────────
 
-async function inviteToOrganization(organizationSlug: string, email: string, role = "member") {
-  // Fluxo comum: cria um convite que o usuário aceita depois de logado.
-  return authyon.organization.invite(organizationSlug, { email, role });
+async function addMember(tenantId: string, userId: string, roles: string[] = ["member"]) {
+  return authyon.environment.tenants.members.add(tenantId, userId, roles);
 }
 
-// ── 3. Ajustar scopes de um membro já existente ─────────────────────────────
+// ── 3. Ajustar os papéis de um membro já existente ──────────────────────────
 
-async function updateMemberScopes(organizationSlug: string, userId: string, scopes: string[]) {
-  return authyon.member.updateScopes(organizationSlug, userId, scopes);
+async function updateMemberRole(
+  tenantId: string,
+  userId: string,
+  oldRole: string,
+  newRole: string,
+) {
+  await authyon.environment.tenants.members.removeRole(tenantId, userId, oldRole);
+  await authyon.environment.tenants.members.assignRole(tenantId, userId, newRole);
 }
 
 // ── 4. Remover acesso ────────────────────────────────────────────────────────
 
-async function removeMember(organizationSlug: string, userId: string) {
-  return authyon.member.remove(organizationSlug, userId);
+async function removeMember(tenantId: string, userId: string) {
+  return authyon.environment.tenants.members.remove(tenantId, userId);
 }
 
 // ── Exemplo de rotas de backend (Express-like) que o frontend chama ────────
@@ -55,21 +59,21 @@ async function handleCreateOrganizationRoute(req: {
   // req.userId viria de você ter validado o JWT do Authyon nesta requisição
   // (ver token-verification.ts — POST /auth/validate ou verificação local via JWKS).
   const org = await createOrganizationWithOwner(req.body.name, req.body.slug, req.userId);
-  return { slug: org.slug };
+  return { id: org.id, slug: org.slug };
 }
 
-async function handleInviteRoute(req: {
-  organizationSlug: string;
-  body: { email: string; role?: string };
+async function handleAddMemberRoute(req: {
+  tenantId: string;
+  body: { userId: string; roles?: string[] };
 }) {
-  return inviteToOrganization(req.organizationSlug, req.body.email, req.body.role);
+  return addMember(req.tenantId, req.body.userId, req.body.roles);
 }
 
 export {
   createOrganizationWithOwner,
-  inviteToOrganization,
-  updateMemberScopes,
+  addMember,
+  updateMemberRole,
   removeMember,
   handleCreateOrganizationRoute,
-  handleInviteRoute,
+  handleAddMemberRoute,
 };
