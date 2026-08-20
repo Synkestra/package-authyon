@@ -1,6 +1,6 @@
 {
   "name": "@authyon/server",
-  "version": "0.1.3",
+  "version": "0.1.0",
   "description": "Authyon SDK for backends — server-to-server organization/member management and access-token verification.",
   "license": "MIT",
   "type": "module",
