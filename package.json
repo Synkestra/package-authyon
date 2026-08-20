@@ -1,7 +1,6 @@
 {
-  "name": "@authyon/auth",
-  "version": "0.1.2",
-  "private": false,
+  "name": "authyon",
+  "private": true,
   "license": "MIT",
   "type": "module",
   "workspaces": [
