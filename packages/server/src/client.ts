@@ -144,11 +144,18 @@ export class AuthyonServerClient {
       ),
   };
 
-  // ── Token verification (publishable key) ─────────────────────────────────
+  // ── Token verification ────────────────────────────────────────────────────
+  //
+  // Per RFC 7662 §2.1, the CALLER must authenticate here too — the token
+  // being inspected sits in the body, but the request itself needs an
+  // environment (or tenant) client-credentials bearer token, same as
+  // `environment.*`. Confirmed against the live API: calling either
+  // endpoint with only the `X-Authyon-Environment` header (no bearer)
+  // returns 401 with `WWW-Authenticate: Bearer`.
 
   /** POST /auth/introspect — lightweight token introspection (RFC 7662). */
   introspect(token: string): Promise<IntrospectResult> {
-    return this.request("/auth/introspect", { method: "POST", body: { token } });
+    return this.request("/auth/introspect", { method: "POST", envBearer: true, body: { token } });
   }
 
   /** POST /auth/validate — recommended: cross-checks DB state, catches revocation immediately. */
@@ -157,7 +164,7 @@ export class AuthyonServerClient {
       user: User;
       organization?: Organization | null;
       tenant?: Organization | null;
-    }>("/auth/validate", { method: "POST", body: { token } });
+    }>("/auth/validate", { method: "POST", envBearer: true, body: { token } });
     return { user: raw.user, organization: raw.organization ?? raw.tenant ?? null };
   }
 

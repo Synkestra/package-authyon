@@ -20,6 +20,7 @@ import type {
   Organization,
   SsoProvider,
   TokenStorage,
+  TwoFactorChallenge,
   TwoFactorMethod,
   TwoFactorVerifyParams,
   TwoFactorStatus,
@@ -40,6 +41,18 @@ interface RequestOptions {
   /** Attach the bearer access token (with transparent refresh + one retry on 401). */
   bearer?: boolean;
   headers?: Record<string, string>;
+}
+
+/**
+ * Wire shape shared by every endpoint that mints a session (`/auth/login`,
+ * `/auth/2fa/verify`, `/auth/refresh`, `/auth/switch-tenant`,
+ * `/auth/webauthn/login/finish`, `/auth/sso/exchange`): tokens live under
+ * `tokens`, not at the top level, and `twoFactor` (not `twoFactorRequired`)
+ * signals a pending challenge — `null`/absent when none is required.
+ */
+interface LoginLikeResponse {
+  tokens: { accessToken: string; refreshToken: string; expiresIn: number };
+  twoFactor?: Record<string, unknown> | null;
 }
 
 export class AuthyonClient {
@@ -101,17 +114,15 @@ export class AuthyonClient {
 
   private setSession(
     raw: {
-      accessToken: string;
-      refreshToken: string;
-      expiresIn: number;
+      tokens: { accessToken: string; refreshToken: string; expiresIn: number };
       user?: Record<string, unknown>;
     },
     event: AuthEvent["type"],
   ): Session {
     const session: Session = {
-      ...raw,
+      ...raw.tokens,
       user: raw.user ? normalizeUser(raw.user) : undefined,
-      expiresAt: Date.now() + raw.expiresIn * 1000,
+      expiresAt: Date.now() + raw.tokens.expiresIn * 1000,
     };
     this.storage.set(session);
     this.emit(event === "signed_out" ? { type: "signed_out" } : { type: event, session });
@@ -121,6 +132,24 @@ export class AuthyonClient {
   private clearSession(): void {
     this.storage.clear();
     this.emit({ type: "signed_out" });
+  }
+
+  /**
+   * `/auth/login` and the other endpoints that mint a session don't return
+   * a `user` object on the wire — only `tokens` (plus `twoFactor`, when a
+   * challenge is required). Fetch the profile right after so callers get a
+   * fully-populated `session.user` without an extra manual round trip.
+   * Best-effort: keeps the session usable even if this fetch fails.
+   */
+  private async hydrateUser(session: Session): Promise<Session> {
+    try {
+      const user = await this.user.me();
+      const hydrated: Session = { ...session, user };
+      this.storage.set(hydrated);
+      return hydrated;
+    } catch {
+      return session;
+    }
   }
 
   // ── HTTP core ────────────────────────────────────────────────────────────
@@ -193,21 +222,21 @@ export class AuthyonClient {
   async login(params: LoginParams): Promise<LoginResult> {
     const { organizationSlug, ...rest } = params;
     const body = organizationSlug ? { ...rest, tenantSlug: organizationSlug } : rest;
-    const data = await this.request<Record<string, unknown>>("/auth/login", {
-      method: "POST",
-      body,
-    });
-    if (data.twoFactorRequired) {
-      return data as unknown as LoginResult;
+    const data = await this.request<LoginLikeResponse>("/auth/login", { method: "POST", body });
+    if (data.twoFactor) {
+      return { twoFactorRequired: true, ...data.twoFactor } as TwoFactorChallenge;
     }
-    const session = this.setSession(data as never, "signed_in");
+    const session = await this.hydrateUser(this.setSession({ tokens: data.tokens }, "signed_in"));
     return { twoFactorRequired: false, session };
   }
 
   /** POST /auth/2fa/verify — redeems a 2FA challenge from `login()` and stores the session. */
   async verifyTwoFactor(params: TwoFactorVerifyParams): Promise<Session> {
-    const data = await this.request<never>("/auth/2fa/verify", { method: "POST", body: params });
-    return this.setSession(data, "signed_in");
+    const data = await this.request<LoginLikeResponse>("/auth/2fa/verify", {
+      method: "POST",
+      body: params,
+    });
+    return this.hydrateUser(this.setSession({ tokens: data.tokens }, "signed_in"));
   }
 
   /** POST /auth/refresh — rotates the single-use refresh token (single-flight). */
@@ -217,12 +246,15 @@ export class AuthyonClient {
     if (!current)
       throw new AuthyonError(401, { code: "auth.not_authenticated", title: "Not authenticated" });
 
-    this.refreshInFlight = this.request<never>("/auth/refresh", {
+    this.refreshInFlight = this.request<LoginLikeResponse>("/auth/refresh", {
       method: "POST",
       body: { refreshToken: current.refreshToken },
     })
       .then((data) =>
-        this.setSession({ user: current.user, ...(data as object) } as never, "refreshed"),
+        this.setSession(
+          { tokens: data.tokens, user: current.user as unknown as Record<string, unknown> },
+          "refreshed",
+        ),
       )
       .catch((error) => {
         // A rejected rotation means the refresh token is spent/revoked.
@@ -272,10 +304,12 @@ export class AuthyonClient {
      * stores the session.
      */
     loginFinish: (assertion: WebAuthnAssertion): Promise<Session> =>
-      this.request<never>("/auth/webauthn/login/finish", {
+      this.request<LoginLikeResponse>("/auth/webauthn/login/finish", {
         method: "POST",
         body: assertion,
-      }).then((data) => this.setSession(data, "signed_in")),
+      })
+        .then((data) => this.setSession({ tokens: data.tokens }, "signed_in"))
+        .then((session) => this.hydrateUser(session)),
   };
 
   // ── Social sign-in (SSO) ─────────────────────────────────────────────────
@@ -304,9 +338,9 @@ export class AuthyonClient {
      * callback for tokens and stores the session.
      */
     exchange: (code: string): Promise<Session> =>
-      this.request<never>("/auth/sso/exchange", { method: "POST", body: { code } }).then((data) =>
-        this.setSession(data, "signed_in"),
-      ),
+      this.request<LoginLikeResponse>("/auth/sso/exchange", { method: "POST", body: { code } })
+        .then((data) => this.setSession({ tokens: data.tokens }, "signed_in"))
+        .then((session) => this.hydrateUser(session)),
   };
 
   // ── User ─────────────────────────────────────────────────────────────────
@@ -382,11 +416,13 @@ export class AuthyonClient {
 
     /** POST /auth/switch-tenant — issues a fresh token scoped to the new organization. */
     switch: (organizationSlug: string): Promise<Session> =>
-      this.request<never>("/auth/switch-tenant", {
+      this.request<LoginLikeResponse>("/auth/switch-tenant", {
         method: "POST",
         bearer: true,
         body: { tenantSlug: organizationSlug },
-      }).then((data) => this.setSession(data, "refreshed")),
+      })
+        .then((data) => this.setSession({ tokens: data.tokens }, "refreshed"))
+        .then((session) => this.hydrateUser(session)),
 
     /** The organization the current session is scoped to, from the cached session — no network call. */
     current: (): Organization | null => this.getSession()?.user?.activeOrganization ?? null,
