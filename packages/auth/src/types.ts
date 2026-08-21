@@ -40,9 +40,17 @@ export interface User {
   id: string;
   email: string;
   username?: string;
+  emailConfirmed?: boolean;
+  firstName?: string | null;
+  lastName?: string | null;
+  roles?: string[];
+  permissions?: string[];
+  createdAt?: string;
+  lastLoginAt?: string;
   organizations?: Organization[];
   activeOrganization?: Organization | null;
-  permissions?: string[];
+  /** Actions the user must complete before continuing (e.g. confirm e-mail). */
+  pendencies?: string[];
 }
 
 /** Token pair issued by login / refresh / tenant switch. */
@@ -100,9 +108,18 @@ export interface TwoFactorVerifyParams {
   webAuthnAssertion?: WebAuthnAssertion;
 }
 
+/** GET /auth/2fa/status — per-method enrolment flags, confirmed against the live API. */
 export interface TwoFactorStatus {
-  methods: TwoFactorMethod[];
-  recoveryCodesRemaining?: number;
+  authenticatorEnabled: boolean;
+  authenticatorConfirmedAt?: string | null;
+  emailEnabled: boolean;
+  emailEnabledAt?: string | null;
+  /** Partially redacted (e.g. `"n**********@h***.com"`). */
+  emailHint?: string | null;
+  webAuthnEnabled: boolean;
+  webAuthnCredentialCount: number;
+  webAuthnCredentials: WebAuthnCredential[];
+  remainingRecoveryCodes: number;
 }
 
 export interface AuthenticatorSetup {
@@ -139,12 +156,28 @@ export interface SsoProvider {
   startUrl: string;
 }
 
+/** GET /auth/me/activities — one audit-trail entry, confirmed against the live API. */
 export interface Activity {
   id: string;
-  type: string;
-  createdAt: string;
+  eventType: string;
+  occurredAt: string;
+  environmentId?: string;
   ip?: string;
-  device?: string;
+  userAgent?: string;
+  /** JSON-encoded string — `JSON.parse` it for the event-specific payload. */
+  payloadJson?: string;
+}
+
+/** Paginated list envelope returned by `user.activities()`. */
+export interface Page<T> {
+  data: T[];
+  /** Item count actually returned for this page. */
+  perPage?: number;
+  pageSize: number;
+  total: number;
+  pages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
 }
 
 /** A role available within an organization (tenant). */
@@ -155,13 +188,17 @@ export interface Role {
   permissions?: string[];
 }
 
+/** GET /auth/sessions — confirmed against the live API. */
 export interface SessionInfo {
   id: string;
-  createdAt?: string;
-  lastUsedAt?: string;
-  ip?: string;
-  device?: string;
-  current?: boolean;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt?: string | null;
+  createdFromIp?: string;
+  isActive: boolean;
+  userAgent?: string;
+  lastUsedAt?: string | null;
+  lastUsedFromIp?: string | null;
 }
 
 export interface IntrospectResult {

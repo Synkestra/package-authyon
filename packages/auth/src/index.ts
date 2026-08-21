@@ -13,6 +13,7 @@ export type {
   LoginParams,
   LoginResult,
   OrganizationMember,
+  Page,
   PageParams,
   RegisterParams,
   Role,

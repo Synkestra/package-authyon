@@ -12,6 +12,7 @@ import type {
   LoginParams,
   LoginResult,
   OrganizationMember,
+  Page,
   PageParams,
   RegisterParams,
   Role,
@@ -353,8 +354,8 @@ export class AuthyonClient {
     /** GET /auth/sessions — active refresh-token sessions with device/IP data. */
     sessions: (): Promise<SessionInfo[]> => this.request("/auth/sessions", { bearer: true }),
 
-    /** GET /auth/me/activities — recent account activity for the current user. */
-    activities: (params: PageParams = {}): Promise<Activity[]> =>
+    /** GET /auth/me/activities — paginated recent account activity for the current user. */
+    activities: (params: PageParams = {}): Promise<Page<Activity>> =>
       this.request(`/auth/me/activities?${toQuery(params)}`, { bearer: true }),
 
     /**
@@ -580,13 +581,21 @@ export class AuthyonClient {
   }
 }
 
-/** Maps the API's tenant-based wire fields to the SDK's organization naming. */
+/**
+ * Maps the API's tenant-based wire fields to the SDK's organization naming.
+ * Confirmed against a live `GET /auth/me` response: the currently-scoped
+ * tenant comes back as a single `tenant` field (not `activeTenant`, and
+ * there's no `tenants` list — that's what `organization.list()` is for).
+ */
 function normalizeUser(raw: Record<string, unknown>): User {
-  const { tenants, activeTenant, ...rest } = raw;
+  const { tenant, tenants, activeTenant, ...rest } = raw;
   return {
     ...(rest as unknown as User),
     organizations: (raw.organizations ?? tenants) as Organization[] | undefined,
-    activeOrganization: (raw.activeOrganization ?? activeTenant ?? null) as Organization | null,
+    activeOrganization: (tenant ??
+      raw.activeOrganization ??
+      activeTenant ??
+      null) as Organization | null,
   };
 }
 
