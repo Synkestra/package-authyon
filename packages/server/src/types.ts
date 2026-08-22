@@ -12,27 +12,45 @@ export interface User {
   permissions?: string[];
 }
 
-/** RFC 7662 token introspection result. */
+/** POST /auth/introspect (RFC 7662) — confirmed against the live API. */
 export interface IntrospectResult {
   active: boolean;
   sub?: string;
+  username?: string | null;
+  email?: string | null;
+  roles?: string[] | null;
+  permissions?: string[];
   client_id?: string;
   scope?: string;
   exp?: number;
+  iat?: number;
+  jti?: string;
   token_type?: string;
 }
 
+/**
+ * POST /auth/validate — confirmed against the live API. The wire shape is
+ * `{ valid, reason, profile }`, not `{ user, organization }` as the
+ * OpenAPI schema (which didn't document response bodies) suggested.
+ * `profile` is `null` for machine tokens (there's no user behind them) and
+ * for tokens that fail validation.
+ */
 export interface ValidateResult {
-  user: User;
-  organization?: Organization | null;
+  valid: boolean;
+  reason?: string | null;
+  user: User | null;
 }
 
-/** A role available within an environment or one of its tenants. */
+/**
+ * A role available within an environment or one of its tenants. Confirmed
+ * live: system roles carry no `id`/`description` (only `name` +
+ * `permissions`) — both are only populated for custom roles you create.
+ */
 export interface Role {
-  id: string;
+  id?: string | null;
   name: string;
-  description?: string;
-  permissions?: string[];
+  description?: string | null;
+  permissions: string[];
 }
 
 export interface RoleInput {
@@ -41,10 +59,42 @@ export interface RoleInput {
   permissions?: string[];
 }
 
+/**
+ * GET /env/roles and GET /tenant/roles group results by origin instead of
+ * returning a flat array — confirmed live for the environment endpoint.
+ */
+export interface RoleList {
+  custom: Role[];
+  system: Role[];
+}
+
+/** A permission entry as it appears nested under a role in `PermissionsByRole`. */
 export interface Permission {
-  id: string;
   value: string;
-  description?: string;
+  description?: string | null;
+  /** Confirmed live: `null` for the built-in catalog: no separate id per entry. */
+  catalogId?: string | null;
+}
+
+/** A role entry as returned by GET /env/permissions, with its permissions nested. */
+export interface RolePermissions {
+  roleId: string | null;
+  name: string;
+  description?: string | null;
+  isSystem: boolean;
+  permissions: Permission[];
+}
+
+/** GET /env/permissions — confirmed live: grouped by role, plus any orphaned entries. */
+export interface PermissionsByRole {
+  roles: RolePermissions[];
+  orphans: Permission[];
+}
+
+/** GET /permissions/reserved — confirmed live: wrapped, not a bare string array. */
+export interface ReservedPermissions {
+  namespace: string;
+  items: string[];
 }
 
 export interface CreatePermissionInput {
@@ -81,19 +131,45 @@ export interface CreateUserInput {
   tenantIds?: string[];
 }
 
+/** GET /env/audit — one audit-trail entry, confirmed against the live API. */
 export interface AuditEvent {
   id: string;
-  type: string;
-  createdAt: string;
-  data?: Record<string, unknown>;
+  occurredAt: string;
+  eventType: string;
+  /** JSON-encoded string — `JSON.parse` it for the event-specific payload. */
+  payloadJson?: string;
+  workspaceId?: string;
+  environmentId?: string;
+  actorUserId?: string | null;
+  actorType?: string;
+  actorIp?: string;
+  userAgent?: string;
+  tenantId?: string | null;
 }
 
-export interface LoginActivity {
-  id: string;
-  userId?: string;
-  ip?: string;
-  createdAt: string;
-  success?: boolean;
+/**
+ * GET /env/audit/login-activity. Not confirmed with a populated example
+ * live (the test environment had none) — assumed to share `AuditEvent`'s
+ * shape, since login activity is the same underlying audit-event stream
+ * filtered to sign-in events.
+ */
+export type LoginActivity = AuditEvent;
+
+/**
+ * Envelope every `skip`/`take`-paginated list endpoint returns, confirmed
+ * live for `/env/users`, `/env/audit` and `/env/audit/login-activity`.
+ * Endpoints without `skip`/`take` params (e.g. `/env/tenants`) return a
+ * bare array instead.
+ */
+export interface Page<T> {
+  data: T[];
+  /** Item count actually returned for this page. */
+  perPage?: number;
+  pageSize: number;
+  total: number;
+  pages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
 }
 
 /** Pagination options accepted by list endpoints. */

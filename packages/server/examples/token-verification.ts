@@ -14,18 +14,24 @@
  *    banco do Authyon, então detecta revogação/expulsão em tempo real, ao
  *    custo de uma chamada de rede a mais por requisição.
  *
- * Ambas usam a PUBLISHABLE key (a mesma do frontend) — verificar um token
- * não exige a secret key, só o CRUD de organização/membros exige.
+ * Ambas exigem, além da publishable key, uma credencial de cliente de
+ * ambiente (`clientId`/`clientSecret`) para autenticar o CHAMADOR — o SDK
+ * troca por um token e o anexa sozinho (confirmado contra a API real:
+ * sem isso, ambas retornam 401).
  */
 import { AuthyonError, createClient } from "../src/index";
 
-const authyon = createClient({ envKey: "pk_test_123" });
+const authyon = createClient({
+  envKey: "pk_test_123",
+  clientId: process.env.AUTHYON_CLIENT_ID,
+  clientSecret: process.env.AUTHYON_CLIENT_SECRET,
+});
 
 // ── Middleware estilo Express ────────────────────────────────────────────────
 
 interface AuthedRequest {
   headers: Record<string, string | undefined>;
-  auth?: { userId: string; organizationSlug?: string; permissions: string[] };
+  auth?: { userId: string; permissions: string[] };
 }
 
 /**
@@ -47,26 +53,22 @@ async function requireAuthFast(req: AuthedRequest): Promise<void> {
  * Verificação forte — use em rotas sensíveis (mudança de senha, dados de
  * pagamento, ações administrativas) onde uma revogação/expulsão recente
  * precisa ser respeitada imediatamente.
+ *
+ * Confirmado contra a API real: um token inválido/revogado NÃO lança erro
+ * aqui — a resposta é 200 OK com `{ valid: false, reason, user: null }`.
  */
 async function requireAuthStrict(req: AuthedRequest): Promise<void> {
   const token = bearerFrom(req);
+  const { valid, reason, user } = await authyon.validate(token);
 
-  try {
-    const { user, organization } = await authyon.validate(token);
-    req.auth = {
-      userId: user.id,
-      organizationSlug: organization?.slug,
-      permissions: user.permissions ?? [],
-    };
-  } catch (err) {
-    if (err instanceof AuthyonError && err.status === 401) {
-      throw new AuthyonError(401, {
-        code: "auth.invalid_token",
-        title: "Invalid, expired or revoked token",
-      });
-    }
-    throw err;
+  if (!valid || !user) {
+    throw new AuthyonError(401, {
+      code: reason ?? "auth.invalid_token",
+      title: "Invalid, expired or revoked token",
+    });
   }
+
+  req.auth = { userId: user.id, permissions: user.permissions ?? [] };
 }
 
 function bearerFrom(req: AuthedRequest): string {

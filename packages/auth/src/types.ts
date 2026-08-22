@@ -201,18 +201,33 @@ export interface SessionInfo {
   lastUsedFromIp?: string | null;
 }
 
+/** POST /auth/introspect (RFC 7662) — confirmed against the live API. */
 export interface IntrospectResult {
   active: boolean;
   sub?: string;
+  username?: string | null;
+  email?: string | null;
+  roles?: string[] | null;
+  permissions?: string[];
   client_id?: string;
   scope?: string;
   exp?: number;
+  iat?: number;
+  jti?: string;
   token_type?: string;
 }
 
+/**
+ * POST /auth/validate — confirmed against the live API. The wire shape is
+ * `{ valid, reason, profile }`, not `{ user, organization }` as the
+ * OpenAPI schema (which didn't document response bodies) suggested.
+ * `profile` is `null` for machine tokens (there's no user behind them) and
+ * for tokens that fail validation.
+ */
 export interface ValidateResult {
-  user: User;
-  organization?: Organization | null;
+  valid: boolean;
+  reason?: string | null;
+  user: User | null;
 }
 
 export type AuthEvent =

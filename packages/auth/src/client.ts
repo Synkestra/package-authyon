@@ -460,8 +460,13 @@ export class AuthyonClient {
     current: (): Organization | null => this.getSession()?.user?.activeOrganization ?? null,
 
     members: {
-      /** GET /auth/tenants/{organizationId}/members — list an organization's members. */
-      list: (organizationId: string, params: PageParams = {}): Promise<OrganizationMember[]> =>
+      /**
+       * GET /auth/tenants/{organizationId}/members — paginated list of an
+       * organization's members. Consistent with the confirmed-live
+       * `Page<T>` envelope every other `skip`/`take` endpoint returns
+       * (`user.activities()`, `@authyon/server`'s `environment.users.list()`).
+       */
+      list: (organizationId: string, params: PageParams = {}): Promise<Page<OrganizationMember>> =>
         this.request(
           `/auth/tenants/${encodeURIComponent(organizationId)}/members?${toQuery(params)}`,
           { bearer: true },
@@ -592,22 +597,37 @@ export class AuthyonClient {
 
   // ── Token verification ───────────────────────────────────────────────────
 
-  /** POST /auth/introspect — lightweight token introspection. */
+  /**
+   * POST /auth/introspect — lightweight token introspection (RFC 7662).
+   *
+   * ⚠️ Confirmed live: this endpoint requires the CALLER to also
+   * authenticate, with an environment or tenant client-credentials bearer
+   * token — the end user's own access token doesn't satisfy that (401).
+   * A browser app has no client secret to present, so this will fail from
+   * `@authyon/auth` in practice; call it from your backend via
+   * `@authyon/server` instead.
+   */
   async introspect(token?: string): Promise<IntrospectResult> {
     const accessToken = token ?? (await this.getAccessToken());
     return this.request("/auth/introspect", { method: "POST", body: { token: accessToken } });
   }
 
-  /** POST /auth/validate — recommended: cross-checks DB state, returns user + organization. */
+  /**
+   * POST /auth/validate — recommended: cross-checks DB state, catches
+   * revocation immediately. Same caller-authentication requirement (and
+   * the same practical limitation from the browser) as `introspect()`.
+   */
   async validate(token?: string): Promise<ValidateResult> {
     const accessToken = token ?? (await this.getAccessToken());
-    const raw = await this.request<Record<string, unknown>>("/auth/validate", {
-      method: "POST",
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    });
+    const raw = await this.request<{
+      valid: boolean;
+      reason?: string | null;
+      profile: Record<string, unknown> | null;
+    }>("/auth/validate", { method: "POST", body: { token: accessToken } });
     return {
-      user: normalizeUser(raw.user as Record<string, unknown>),
-      organization: (raw.organization ?? raw.tenant ?? null) as Organization | null,
+      valid: raw.valid,
+      reason: raw.reason ?? null,
+      user: raw.profile ? normalizeUser(raw.profile) : null,
     };
   }
 }

@@ -12,10 +12,14 @@ import type {
   Member,
   Organization,
   OpenIdConfiguration,
+  Page,
   PageParams,
   Permission,
+  PermissionsByRole,
+  ReservedPermissions,
   Role,
   RoleInput,
+  RoleList,
   TokenResult,
   UpdateOrganizationInput,
   User,
@@ -161,11 +165,11 @@ export class AuthyonServerClient {
   /** POST /auth/validate — recommended: cross-checks DB state, catches revocation immediately. */
   async validate(token: string): Promise<ValidateResult> {
     const raw = await this.request<{
-      user: User;
-      organization?: Organization | null;
-      tenant?: Organization | null;
+      valid: boolean;
+      reason?: string | null;
+      profile: User | null;
     }>("/auth/validate", { method: "POST", envBearer: true, body: { token } });
-    return { user: raw.user, organization: raw.organization ?? raw.tenant ?? null };
+    return { valid: raw.valid, reason: raw.reason ?? null, user: raw.profile };
   }
 
   // ── Environment-level machine auth ───────────────────────────────────────
@@ -212,8 +216,8 @@ export class AuthyonServerClient {
 
   readonly environment = {
     users: {
-      /** GET /env/users — list users in the environment. */
-      list: (params: { search?: string } & PageParams = {}): Promise<User[]> =>
+      /** GET /env/users — paginated list of users in the environment. */
+      list: (params: { search?: string } & PageParams = {}): Promise<Page<User>> =>
         this.request("/env/users", { envBearer: true, query: params }),
 
       /** POST /env/users — create a user in the environment. */
@@ -361,8 +365,8 @@ export class AuthyonServerClient {
         }),
 
       members: {
-        /** GET /env/tenants/{tenantId}/members — list a tenant's members. */
-        list: (tenantId: string, params: PageParams = {}): Promise<Member[]> =>
+        /** GET /env/tenants/{tenantId}/members — paginated list of a tenant's members. */
+        list: (tenantId: string, params: PageParams = {}): Promise<Page<Member>> =>
           this.request(`/env/tenants/${encodeURIComponent(tenantId)}/members`, {
             envBearer: true,
             query: params,
@@ -449,8 +453,8 @@ export class AuthyonServerClient {
     },
 
     roles: {
-      /** GET /env/roles — list environment-level roles. */
-      list: (): Promise<Role[]> => this.request("/env/roles", { envBearer: true }),
+      /** GET /env/roles — environment-level roles, grouped into custom and system-defined. */
+      list: (): Promise<RoleList> => this.request("/env/roles", { envBearer: true }),
 
       /** POST /env/roles — create an environment-level role. */
       create: (input: RoleInput): Promise<Role> =>
@@ -473,8 +477,8 @@ export class AuthyonServerClient {
     },
 
     permissions: {
-      /** GET /env/permissions — list environment-level permissions. */
-      list: (): Promise<Permission[]> => this.request("/env/permissions", { envBearer: true }),
+      /** GET /env/permissions — environment-level permissions, grouped by the role they're attached to. */
+      list: (): Promise<PermissionsByRole> => this.request("/env/permissions", { envBearer: true }),
 
       /** POST /env/permissions — create an environment-level permission. */
       create: (input: CreatePermissionInput): Promise<Permission> =>
@@ -496,16 +500,17 @@ export class AuthyonServerClient {
         }),
 
       /** GET /permissions/reserved — reserved permission names you can't redefine. */
-      reserved: (): Promise<string[]> => this.request("/permissions/reserved", { envBearer: true }),
+      reserved: (): Promise<ReservedPermissions> =>
+        this.request("/permissions/reserved", { envBearer: true }),
     },
 
     audit: {
-      /** GET /env/audit — list the environment's audit events. */
-      list: (params: PageParams = {}): Promise<AuditEvent[]> =>
+      /** GET /env/audit — paginated list of the environment's audit events. */
+      list: (params: PageParams = {}): Promise<Page<AuditEvent>> =>
         this.request("/env/audit", { envBearer: true, query: params }),
 
-      /** GET /env/audit/login-activity — list login activity in the environment. */
-      loginActivity: (params: PageParams = {}): Promise<LoginActivity[]> =>
+      /** GET /env/audit/login-activity — paginated login activity in the environment. */
+      loginActivity: (params: PageParams = {}): Promise<Page<LoginActivity>> =>
         this.request("/env/audit/login-activity", { envBearer: true, query: params }),
     },
   };
@@ -581,8 +586,8 @@ export class TenantScopedClient {
   }
 
   readonly members = {
-    /** GET /tenant/members — list members of the token's tenant. */
-    list: (params: PageParams = {}): Promise<Member[]> =>
+    /** GET /tenant/members — paginated list of members of the token's tenant. */
+    list: (params: PageParams = {}): Promise<Page<Member>> =>
       this.request("/tenant/members", { query: params }),
 
     /** POST /tenant/members — add a member to the token's tenant. */
@@ -623,8 +628,15 @@ export class TenantScopedClient {
   };
 
   readonly roles = {
-    /** GET /tenant/roles — list the roles in the token's tenant. */
-    list: (): Promise<Role[]> => this.request("/tenant/roles"),
+    /**
+     * GET /tenant/roles — roles in the token's tenant, grouped into custom
+     * and system-defined.
+     *
+     * ⚠️ Inferred, not confirmed live (the test environment had no tenants
+     * to exchange a scoped token for) — assumed to share `/env/roles`'
+     * grouped shape, since both operate on the same underlying role model.
+     */
+    list: (): Promise<RoleList> => this.request("/tenant/roles"),
 
     /** POST /tenant/roles — create a role in the tenant. */
     create: (input: RoleInput): Promise<Role> =>
