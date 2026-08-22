@@ -5,11 +5,61 @@ export interface Organization {
   description?: string;
 }
 
+/** Lightweight user shape returned by `introspect()`/`validate()`. */
 export interface User {
   id: string;
   email: string;
   username?: string;
   permissions?: string[];
+}
+
+export interface RoleGrant {
+  role: string;
+  expiresAt?: string | null;
+}
+
+/**
+ * Full user record from the EnvironmentManagement plane
+ * (`environment.users.get()` / `.list()`), confirmed against the live API.
+ * `get()` returns every field below; `list()` returns a subset (no
+ * `failedLoginAttempts`, `lockedOutUntil`, `roleGrants`,
+ * `directPermissions`, `effectivePermissions`, `refreshTokens`,
+ * `tenantMemberships`, `totpConfirmedAt`, `emailOtpEnabledAt`,
+ * `remainingRecoveryCodes`, `disableReason`, `suspension`, `deleteReason`,
+ * `customFields` — and `suspendedUntil` instead of `suspension`).
+ */
+export interface EnvironmentUser {
+  id: string;
+  email: string;
+  username?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  emailConfirmed: boolean;
+  isDisabled: boolean;
+  createdAt: string;
+  lastLoginAt?: string | null;
+  failedLoginAttempts?: number;
+  lockedOutUntil?: string | null;
+  roles: string[];
+  roleGrants?: RoleGrant[];
+  directPermissions?: string[];
+  effectivePermissions?: string[];
+  /** Confirmed shape unknown — empty in every response seen so far. */
+  refreshTokens?: unknown[];
+  tenantIds: string[];
+  tenantMemberships?: unknown[];
+  tenantRoles?: unknown[];
+  twoFactorMethods: string[];
+  totpConfirmedAt?: string | null;
+  emailOtpEnabledAt?: string | null;
+  remainingRecoveryCodes?: number;
+  disableReason?: string | null;
+  suspension?: unknown | null;
+  suspendedUntil?: string | null;
+  deletedAt?: string | null;
+  deleteReason?: string | null;
+  /** JSON-encoded string. */
+  customFields?: string;
 }
 
 /** POST /auth/introspect (RFC 7662) — confirmed against the live API. */

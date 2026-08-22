@@ -6,6 +6,7 @@ import type {
   CreateOrganizationInput,
   CreatePermissionInput,
   CreateUserInput,
+  EnvironmentUser,
   IntrospectResult,
   JsonWebKeySet,
   LoginActivity,
@@ -217,15 +218,15 @@ export class AuthyonServerClient {
   readonly environment = {
     users: {
       /** GET /env/users — paginated list of users in the environment. */
-      list: (params: { search?: string } & PageParams = {}): Promise<Page<User>> =>
+      list: (params: { search?: string } & PageParams = {}): Promise<Page<EnvironmentUser>> =>
         this.request("/env/users", { envBearer: true, query: params }),
 
-      /** POST /env/users — create a user in the environment. */
-      create: (input: CreateUserInput): Promise<User> =>
+      /** POST /env/users — create a user in the environment; returns only the new id. */
+      create: (input: CreateUserInput): Promise<{ id: string }> =>
         this.request("/env/users", { method: "POST", envBearer: true, body: input }),
 
       /** GET /env/users/{userId} — fetch an environment user by id. */
-      get: (userId: string): Promise<User> =>
+      get: (userId: string): Promise<EnvironmentUser> =>
         this.request(`/env/users/${encodeURIComponent(userId)}`, { envBearer: true }),
 
       /** POST /env/users/{userId}/roles — grant a role to an environment user. */
