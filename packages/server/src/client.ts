@@ -10,7 +10,6 @@ import type {
   IntrospectResult,
   JsonWebKeySet,
   LoginActivity,
-  Member,
   Organization,
   OpenIdConfiguration,
   Page,
@@ -366,8 +365,14 @@ export class AuthyonServerClient {
         }),
 
       members: {
-        /** GET /env/tenants/{tenantId}/members — paginated list of a tenant's members. */
-        list: (tenantId: string, params: PageParams = {}): Promise<Page<Member>> =>
+        /**
+         * GET /env/tenants/{tenantId}/members — a tenant's members as full
+         * user records. Confirmed live: a bare array (unlike
+         * `environment.users.list()`, this one does NOT paginate despite
+         * accepting `skip`/`take`), with the same shape
+         * `environment.users.list()` items have.
+         */
+        list: (tenantId: string, params: PageParams = {}): Promise<EnvironmentUser[]> =>
           this.request(`/env/tenants/${encodeURIComponent(tenantId)}/members`, {
             envBearer: true,
             query: params,
@@ -587,8 +592,16 @@ export class TenantScopedClient {
   }
 
   readonly members = {
-    /** GET /tenant/members — paginated list of members of the token's tenant. */
-    list: (params: PageParams = {}): Promise<Page<Member>> =>
+    /**
+     * GET /tenant/members — members of the token's tenant.
+     *
+     * ⚠️ Inferred, not confirmed live (no tenant client credentials
+     * available to exchange for a scoped token) — assumed to share
+     * `/env/tenants/{id}/members`'s confirmed shape (bare array of full
+     * user records), since both are the "admin" member listing as opposed
+     * to `/auth/tenants/{id}/members`'s paginated, lightweight one.
+     */
+    list: (params: PageParams = {}): Promise<EnvironmentUser[]> =>
       this.request("/tenant/members", { query: params }),
 
     /** POST /tenant/members — add a member to the token's tenant. */

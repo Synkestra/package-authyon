@@ -1,8 +1,24 @@
+/** GET/POST /env/tenants — confirmed against the live API. */
 export interface Organization {
   id: string;
   slug: string;
   name?: string;
-  description?: string;
+  description?: string | null;
+  environmentId?: string;
+  workspaceId?: string;
+  isDisabled?: boolean;
+  memberCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** One of a user's tenant memberships, as embedded in `EnvironmentUser.tenantMemberships`. */
+export interface TenantMembership {
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  tenantDisabled: boolean;
+  roles: string[];
 }
 
 /** Lightweight user shape returned by `introspect()`/`validate()`. */
@@ -47,8 +63,9 @@ export interface EnvironmentUser {
   /** Confirmed shape unknown — empty in every response seen so far. */
   refreshTokens?: unknown[];
   tenantIds: string[];
-  tenantMemberships?: unknown[];
-  tenantRoles?: unknown[];
+  tenantMemberships?: TenantMembership[];
+  /** Flattened role names across all tenant memberships (list() only). */
+  tenantRoles?: string[];
   twoFactorMethods: string[];
   totpConfirmedAt?: string | null;
   emailOtpEnabledAt?: string | null;
@@ -152,12 +169,6 @@ export interface CreatePermissionInput {
   description?: string;
   /** Attach the new permission to this role immediately. */
   attachToRoleId?: string;
-}
-
-export interface Member {
-  userId: string;
-  email?: string;
-  roles?: string[];
 }
 
 export interface CreateOrganizationInput {

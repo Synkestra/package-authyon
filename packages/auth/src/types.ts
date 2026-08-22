@@ -17,10 +17,14 @@ export interface CreateOrganizationParams {
   description?: string;
 }
 
+/** GET /auth/tenants/{organizationId}/members — confirmed against the live API. */
 export interface OrganizationMember {
   userId: string;
   email?: string;
+  username?: string;
   roles?: string[];
+  createdAt?: string;
+  lastLoginAt?: string | null;
 }
 
 /** POST /auth/tenants/{tenantId}/members — invites a member by e-mail. */
