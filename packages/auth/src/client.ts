@@ -44,16 +44,45 @@ interface RequestOptions {
   headers?: Record<string, string>;
 }
 
+interface WireTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn?: number;
+}
+
 /**
  * Wire shape shared by every endpoint that mints a session (`/auth/login`,
  * `/auth/2fa/verify`, `/auth/refresh`, `/auth/switch-tenant`,
- * `/auth/webauthn/login/finish`, `/auth/sso/exchange`): tokens live under
- * `tokens`, not at the top level, and `twoFactor` (not `twoFactorRequired`)
+ * `/auth/webauthn/login/finish`, `/auth/sso/exchange`).
+ *
+ * The API is not consistent about where the tokens go: `/auth/login` nests them
+ * under `tokens`, `/auth/refresh` returns them at the top level. Both shapes are
+ * accepted — `readTokens` normalizes. `twoFactor` (not `twoFactorRequired`)
  * signals a pending challenge — `null`/absent when none is required.
  */
-interface LoginLikeResponse {
-  tokens: { accessToken: string; refreshToken: string; expiresIn: number };
+interface LoginLikeResponse extends Partial<WireTokens> {
+  tokens?: WireTokens;
   twoFactor?: Record<string, unknown> | null;
+}
+
+/** Default access-token lifetime when the API omits `expiresIn`. */
+const FALLBACK_EXPIRES_IN = 1800;
+
+/** Reads the tokens from either wire shape (nested under `tokens`, or flat). */
+function readTokens(raw: LoginLikeResponse): Required<WireTokens> {
+  const tokens = raw.tokens ?? raw;
+  if (!tokens.accessToken || !tokens.refreshToken) {
+    throw new AuthyonError(502, {
+      code: "session.malformed",
+      title: "Malformed session response",
+      detail: "The session response carried no access/refresh token pair.",
+    });
+  }
+  return {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    expiresIn: tokens.expiresIn ?? FALLBACK_EXPIRES_IN,
+  };
 }
 
 export class AuthyonClient {
@@ -227,7 +256,9 @@ export class AuthyonClient {
     if (data.twoFactor) {
       return { twoFactorRequired: true, ...data.twoFactor } as TwoFactorChallenge;
     }
-    const session = await this.hydrateUser(this.setSession({ tokens: data.tokens }, "signed_in"));
+    const session = await this.hydrateUser(
+      this.setSession({ tokens: readTokens(data) }, "signed_in"),
+    );
     return { twoFactorRequired: false, session };
   }
 
@@ -237,7 +268,7 @@ export class AuthyonClient {
       method: "POST",
       body: params,
     });
-    return this.hydrateUser(this.setSession({ tokens: data.tokens }, "signed_in"));
+    return this.hydrateUser(this.setSession({ tokens: readTokens(data) }, "signed_in"));
   }
 
   /** POST /auth/refresh — rotates the single-use refresh token (single-flight). */
@@ -253,7 +284,7 @@ export class AuthyonClient {
     })
       .then((data) =>
         this.setSession(
-          { tokens: data.tokens, user: current.user as unknown as Record<string, unknown> },
+          { tokens: readTokens(data), user: current.user as unknown as Record<string, unknown> },
           "refreshed",
         ),
       )
@@ -309,7 +340,7 @@ export class AuthyonClient {
         method: "POST",
         body: assertion,
       })
-        .then((data) => this.setSession({ tokens: data.tokens }, "signed_in"))
+        .then((data) => this.setSession({ tokens: readTokens(data) }, "signed_in"))
         .then((session) => this.hydrateUser(session)),
   };
 
@@ -340,7 +371,7 @@ export class AuthyonClient {
      */
     exchange: (code: string): Promise<Session> =>
       this.request<LoginLikeResponse>("/auth/sso/exchange", { method: "POST", body: { code } })
-        .then((data) => this.setSession({ tokens: data.tokens }, "signed_in"))
+        .then((data) => this.setSession({ tokens: readTokens(data) }, "signed_in"))
         .then((session) => this.hydrateUser(session)),
   };
 
@@ -422,7 +453,7 @@ export class AuthyonClient {
         bearer: true,
         body: { tenantSlug: organizationSlug },
       })
-        .then((data) => this.setSession({ tokens: data.tokens }, "refreshed"))
+        .then((data) => this.setSession({ tokens: readTokens(data) }, "refreshed"))
         .then((session) => this.hydrateUser(session)),
 
     /** The organization the current session is scoped to, from the cached session — no network call. */
