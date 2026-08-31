@@ -2,6 +2,10 @@
 
 Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa versionamento semântico e mantém `@authyon/auth` e `@authyon/server` na mesma versão.
 
+## 0.2.0-beta.1
+
+Republicação da beta com a versão corrigida. Mantém as funcionalidades e correções descritas abaixo para a nova rodada de homologação.
+
 ## 0.2.0-beta.0
 
 Primeira beta da nova arquitetura do SDK. Esta versão é indicada para homologação antes da promoção para `latest`.

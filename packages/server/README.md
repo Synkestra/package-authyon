@@ -5,7 +5,7 @@ SDK server-side para o [Authyon](https://authyon.com) — administração de amb
 ## Instalação da beta
 
 ```bash
-npm install --save-exact @authyon/server@0.2.0-beta.0
+npm install --save-exact @authyon/server@0.2.0-beta.1
 ```
 
 Durante a beta, `npm install @authyon/server@beta` acompanha o prerelease mais recente. Fixar a versão exata é recomendado para builds reproduzíveis.

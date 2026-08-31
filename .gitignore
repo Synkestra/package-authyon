@@ -2,6 +2,9 @@ node_modules/
 dist/
 docs/*
 !docs/README.md
+!docs/gettingStarted.md
+!docs/security.md
+!docs/releaseBeta.md
 !docs/examples/
 !docs/examples/**
 *.log
