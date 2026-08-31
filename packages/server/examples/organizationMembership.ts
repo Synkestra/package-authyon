@@ -57,7 +57,7 @@ async function handleCreateOrganizationRoute(req: {
   body: { name: string; slug: string };
 }) {
   // req.userId viria de você ter validado o JWT do Authyon nesta requisição
-  // (ver token-verification.ts — POST /auth/validate ou verificação local via JWKS).
+  // (ver tokenVerification.ts — POST /auth/validate ou verificação local via JWKS).
   const org = await createOrganizationWithOwner(req.body.name, req.body.slug, req.userId);
   return { id: org.id, slug: org.slug };
 }

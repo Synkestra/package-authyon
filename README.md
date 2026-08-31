@@ -2,6 +2,10 @@
 
 Monorepo com os SDKs não-oficiais do [Authyon](https://authyon.com), separados por onde cada chave pode rodar com segurança.
 
+Consulte [`docs/README.md`](./docs/README.md) para os guias práticos de cada exemplo e integração.
+
+Versão preparada: `0.2.0-beta.0`. Consulte o [`CHANGELOG.md`](./CHANGELOG.md) e o [guia de publicação beta](./docs/releaseBeta.md).
+
 | Pacote                                 | Roda em  | Chave                                                    | O que faz                                                                                 |
 | -------------------------------------- | -------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | [`@authyon/auth`](./packages/auth)     | Frontend | publishable (`pk_...`)                                   | Login, 2FA, passkeys, SSO, sessão/refresh automático, organizações, reset de senha        |

@@ -1,20 +1,30 @@
-import { AuthyonError } from "./errors";
-import { defaultStorage } from "./storage";
+import { AuthyonError, ErrorCodes } from "../errors";
+import { createDefaultStorage } from "../session/storage";
+import {
+  DEFAULT_BASE_URL,
+  DEFAULT_EXPIRY_SKEW_MS,
+} from "../../../../internal/core/config/defaults";
+import {
+  JsonHttpClient,
+  type JsonRequestOptions,
+} from "../../../../internal/core/http/jsonHttpClient";
+import { appendQuery } from "../../../../internal/core/http/query";
+import { createSharedTransport } from "../../../../internal/core/http/transport";
 import type {
   Activity,
   AuthEvent,
   AuthStateListener,
   AuthenticatorSetup,
   AuthyonClientOptions,
-  CreateOrganizationParams,
+  CreateOrganizationInput,
   IntrospectResult,
-  InviteMemberParams,
-  LoginParams,
+  InviteMemberInput,
+  LoginInput,
   LoginResult,
   OrganizationMember,
-  Page,
-  PageParams,
-  RegisterParams,
+  Paged,
+  PaginationOptions,
+  RegisterInput,
   Role,
   Session,
   SessionInfo,
@@ -23,25 +33,18 @@ import type {
   TokenStorage,
   TwoFactorChallenge,
   TwoFactorMethod,
-  TwoFactorVerifyParams,
+  VerifyTwoFactorInput,
   TwoFactorStatus,
   User,
   ValidateResult,
   WebAuthnAssertion,
   WebAuthnCeremonyStart,
   WebAuthnCredential,
-} from "./types";
+} from "../contracts/auth";
 
-const DEFAULT_BASE_URL = "https://api.authyon.com";
-/** Refresh this many ms before the access token actually expires. */
-const EXPIRY_SKEW_MS = 30_000;
-
-interface RequestOptions {
-  method?: "GET" | "POST" | "DELETE" | "PATCH";
-  body?: unknown;
+interface RequestOptions extends JsonRequestOptions {
   /** Attach the bearer access token (with transparent refresh + one retry on 401). */
   bearer?: boolean;
-  headers?: Record<string, string>;
 }
 
 interface WireTokens {
@@ -73,7 +76,7 @@ function readTokens(raw: LoginLikeResponse): Required<WireTokens> {
   const tokens = raw.tokens ?? raw;
   if (!tokens.accessToken || !tokens.refreshToken) {
     throw new AuthyonError(502, {
-      code: "session.malformed",
+      code: ErrorCodes.SessionMalformed,
       title: "Malformed session response",
       detail: "The session response carried no access/refresh token pair.",
     });
@@ -90,7 +93,8 @@ export class AuthyonClient {
   private readonly baseUrl: string;
   private readonly storage: TokenStorage;
   private readonly autoRefresh: boolean;
-  private readonly fetchImpl: typeof fetch;
+  private readonly transport: ReturnType<typeof createSharedTransport>;
+  private readonly http: JsonHttpClient;
   private readonly listeners = new Set<AuthStateListener>();
   private refreshInFlight: Promise<Session> | null = null;
 
@@ -98,10 +102,18 @@ export class AuthyonClient {
     if (!options.envKey)
       throw new Error("Authyon: `envKey` is required (pk_live_... / pk_test_...)");
     this.envKey = options.envKey;
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
-    this.storage = options.storage ?? defaultStorage();
+    this.transport = createSharedTransport({
+      baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
+      allowInsecureHttp: options.allowInsecureHttp,
+      timeoutMs: options.timeoutMs,
+      httpAdapter: options.httpAdapter,
+      httpLogger: options.httpLogger,
+      fetch: options.fetch,
+    });
+    this.baseUrl = this.transport.baseUrl;
+    this.http = new JsonHttpClient(this.transport);
+    this.storage = options.storage ?? createDefaultStorage();
     this.autoRefresh = options.autoRefresh ?? true;
-    this.fetchImpl = options.fetch ?? fetch.bind(globalThis);
   }
 
   // ── Session state ────────────────────────────────────────────────────────
@@ -112,7 +124,14 @@ export class AuthyonClient {
   }
 
   isAuthenticated(): boolean {
-    return this.getSession() !== null;
+    return this.getAuthState() === "authenticated";
+  }
+
+  /** Synchronous snapshot of the locally available authentication state. */
+  getAuthState(): "signed_out" | "authenticated" | "expired" {
+    const session = this.getSession();
+    if (!session) return "signed_out";
+    return Date.now() < session.expiresAt ? "authenticated" : "expired";
   }
 
   /**
@@ -122,14 +141,43 @@ export class AuthyonClient {
   async getAccessToken(): Promise<string | null> {
     const session = this.getSession();
     if (!session) return null;
-    if (this.autoRefresh && Date.now() >= session.expiresAt - EXPIRY_SKEW_MS) {
+    if (this.autoRefresh && Date.now() >= session.expiresAt - DEFAULT_EXPIRY_SKEW_MS) {
       try {
         return (await this.refresh()).accessToken;
-      } catch {
-        return null;
+      } catch (error) {
+        // Revoked/invalid refresh credentials mean signed-out. Transient
+        // transport failures must stay observable so callers can retry.
+        if (error instanceof AuthyonError && (error.status === 401 || error.status === 403)) {
+          return null;
+        }
+        throw error;
       }
     }
     return session.accessToken;
+  }
+
+  /**
+   * Refreshes when needed, validates the server-side session through `GET /auth/me`,
+   * and stores the fresh user profile. Returns null when the session is no longer valid.
+   */
+  async validateSession(): Promise<Session | null> {
+    const accessToken = await this.getAccessToken();
+    if (!accessToken) return null;
+    try {
+      const user = await this.user.me();
+      const current = this.getSession();
+      if (!current) return null;
+      const session = { ...current, user };
+      this.storage.set(session);
+      this.emit({ type: "session_validated", session });
+      return session;
+    } catch (error) {
+      if (error instanceof AuthyonError && (error.status === 401 || error.status === 403)) {
+        this.clearSession();
+        return null;
+      }
+      throw error;
+    }
   }
 
   /** Subscribe to sign-in / refresh / sign-out events. Returns an unsubscribe fn. */
@@ -193,19 +241,17 @@ export class AuthyonClient {
       "X-Authyon-Environment": this.envKey,
       ...options.headers,
     };
-    if (options.body !== undefined) headers["Content-Type"] = "application/json";
     if (options.bearer) {
       const token = await this.getAccessToken();
       if (!token)
-        throw new AuthyonError(401, { code: "auth.not_authenticated", title: "Not authenticated" });
+        throw new AuthyonError(401, {
+          code: ErrorCodes.NotAuthenticated,
+          title: "Not authenticated",
+        });
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const response = await this.fetchImpl(`${this.baseUrl}${path}`, {
-      method: options.method ?? "GET",
-      headers,
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-    });
+    const response = await this.http.send(path, { ...options, headers });
 
     if (
       response.status === 401 &&
@@ -218,30 +264,18 @@ export class AuthyonClient {
         await this.refresh();
       } catch {
         this.clearSession();
-        throw await this.toError(response);
+        return this.http.parse<T>(response);
       }
       return this.request<T>(path, options, true);
     }
 
-    if (!response.ok) throw await this.toError(response);
-    if (response.status === 204) return undefined as T;
-    return (await response.json()) as T;
-  }
-
-  private async toError(response: Response): Promise<AuthyonError> {
-    let body: Record<string, string> = {};
-    try {
-      body = await response.json();
-    } catch {
-      /* non-JSON error body */
-    }
-    return new AuthyonError(response.status, body);
+    return this.http.parse<T>(response);
   }
 
   // ── Auth flows ───────────────────────────────────────────────────────────
 
   /** POST /auth/register — creates a new user (rate-limited to 20/hour per IP). */
-  async register(params: RegisterParams): Promise<{ id: string }> {
+  async register(params: RegisterInput): Promise<{ id: string }> {
     return this.request("/auth/register", { method: "POST", body: params });
   }
 
@@ -249,7 +283,7 @@ export class AuthyonClient {
    * POST /auth/login — authenticates and stores the session, or returns a
    * 2FA challenge to complete via `verifyTwoFactor()`.
    */
-  async login(params: LoginParams): Promise<LoginResult> {
+  async login(params: LoginInput): Promise<LoginResult> {
     const { organizationSlug, ...rest } = params;
     const body = organizationSlug ? { ...rest, tenantSlug: organizationSlug } : rest;
     const data = await this.request<LoginLikeResponse>("/auth/login", { method: "POST", body });
@@ -263,7 +297,7 @@ export class AuthyonClient {
   }
 
   /** POST /auth/2fa/verify — redeems a 2FA challenge from `login()` and stores the session. */
-  async verifyTwoFactor(params: TwoFactorVerifyParams): Promise<Session> {
+  async verifyTwoFactor(params: VerifyTwoFactorInput): Promise<Session> {
     const data = await this.request<LoginLikeResponse>("/auth/2fa/verify", {
       method: "POST",
       body: params,
@@ -276,7 +310,10 @@ export class AuthyonClient {
     if (this.refreshInFlight) return this.refreshInFlight;
     const current = this.getSession();
     if (!current)
-      throw new AuthyonError(401, { code: "auth.not_authenticated", title: "Not authenticated" });
+      throw new AuthyonError(401, {
+        code: ErrorCodes.NotAuthenticated,
+        title: "Not authenticated",
+      });
 
     this.refreshInFlight = this.request<LoginLikeResponse>("/auth/refresh", {
       method: "POST",
@@ -386,8 +423,8 @@ export class AuthyonClient {
     sessions: (): Promise<SessionInfo[]> => this.request("/auth/sessions", { bearer: true }),
 
     /** GET /auth/me/activities — paginated recent account activity for the current user. */
-    activities: (params: PageParams = {}): Promise<Page<Activity>> =>
-      this.request(`/auth/me/activities?${toQuery(params)}`, { bearer: true }),
+    activities: (params: PaginationOptions = {}): Promise<Paged<Activity>> =>
+      this.request(appendQuery("/auth/me/activities", params), { bearer: true }),
 
     /**
      * Revokes a single session by id (e.g. one entry from `sessions()`),
@@ -428,7 +465,7 @@ export class AuthyonClient {
      * user (only available when self-service organization creation is
      * enabled for the environment).
      */
-    create: (params: CreateOrganizationParams = {}): Promise<Organization> =>
+    create: (params: CreateOrganizationInput = {}): Promise<Organization> =>
       this.request("/auth/tenants", { method: "POST", bearer: true, body: params }),
 
     /** GET /auth/tenants/{organizationId} — fetch one of the user's organizations by id. */
@@ -463,17 +500,20 @@ export class AuthyonClient {
       /**
        * GET /auth/tenants/{organizationId}/members — paginated list of an
        * organization's members. Consistent with the confirmed-live
-       * `Page<T>` envelope every other `skip`/`take` endpoint returns
+       * `Paged<T>` envelope every other `skip`/`take` endpoint returns
        * (`user.activities()`, `@authyon/server`'s `environment.users.list()`).
        */
-      list: (organizationId: string, params: PageParams = {}): Promise<Page<OrganizationMember>> =>
+      list: (
+        organizationId: string,
+        params: PaginationOptions = {},
+      ): Promise<Paged<OrganizationMember>> =>
         this.request(
-          `/auth/tenants/${encodeURIComponent(organizationId)}/members?${toQuery(params)}`,
+          appendQuery(`/auth/tenants/${encodeURIComponent(organizationId)}/members`, params),
           { bearer: true },
         ),
 
       /** POST /auth/tenants/{organizationId}/members — invite a member by e-mail. */
-      invite: (organizationId: string, params: InviteMemberParams): Promise<void> =>
+      invite: (organizationId: string, params: InviteMemberInput): Promise<void> =>
         this.request(`/auth/tenants/${encodeURIComponent(organizationId)}/members`, {
           method: "POST",
           bearer: true,
@@ -606,6 +646,8 @@ export class AuthyonClient {
    * A browser app has no client secret to present, so this will fail from
    * `@authyon/auth` in practice; call it from your backend via
    * `@authyon/server` instead.
+   *
+   * @deprecated Use `@authyon/server.introspect()` from a trusted backend.
    */
   async introspect(token?: string): Promise<IntrospectResult> {
     const accessToken = token ?? (await this.getAccessToken());
@@ -616,6 +658,8 @@ export class AuthyonClient {
    * POST /auth/validate — recommended: cross-checks DB state, catches
    * revocation immediately. Same caller-authentication requirement (and
    * the same practical limitation from the browser) as `introspect()`.
+   *
+   * @deprecated Use `@authyon/server.validate()` from a trusted backend.
    */
   async validate(token?: string): Promise<ValidateResult> {
     const accessToken = token ?? (await this.getAccessToken());
@@ -653,12 +697,4 @@ function normalizeUser(raw: Record<string, unknown>): User {
 /** Convenience factory: `const authyon = createClient({ envKey: "pk_live_..." })`. */
 export function createClient(options: AuthyonClientOptions): AuthyonClient {
   return new AuthyonClient(options);
-}
-
-function toQuery(params: object): string {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined) query.set(key, String(value));
-  }
-  return query.toString();
 }

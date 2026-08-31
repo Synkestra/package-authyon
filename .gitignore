@@ -1,6 +1,9 @@
 node_modules/
 dist/
-docs/
+docs/*
+!docs/README.md
+!docs/examples/
+!docs/examples/**
 *.log
 .DS_Store
 .env

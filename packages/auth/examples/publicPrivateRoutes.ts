@@ -51,7 +51,7 @@ function renderSettings() {
   console.log("Configurações da conta.");
 }
 function renderSecuritySettings() {
-  console.log("Segurança da conta (2FA, sessões) — ver examples/two-factor-setup.ts.");
+  console.log("Segurança da conta (2FA, sessões) — ver examples/twoFactorSetup.ts.");
 }
 
 // ── O "guard" que decide se pode renderizar a rota ──────────────────────────

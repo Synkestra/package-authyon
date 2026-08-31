@@ -1,21 +1,59 @@
-export { AuthyonClient, createClient } from "./client";
+export { AuthyonClient, createClient } from "./client/authyonClient";
+export { AuthyonClientBuilder } from "./client/authyonClientBuilder";
 export { AuthyonError, ErrorCodes } from "./errors";
-export { localStorageAdapter, memoryStorage, defaultStorage } from "./storage";
+export type {
+  AuthyonErrorAction,
+  AuthyonErrorCategory,
+  AuthyonErrorInterpretation,
+  KnownErrorCode,
+} from "./errors";
+export { createDefaultStorage, createLocalStorage, createMemoryStorage } from "./session/storage";
+export { AuthyonSessionController } from "./session/sessionController";
+export type {
+  SessionControllerOptions,
+  SessionSnapshot,
+  SessionSnapshotListener,
+  SessionStatus,
+} from "./session/sessionController";
+export { FetchHttpAdapter, LoggingHttpAdapter } from "../../../internal/core/http/httpAdapter";
+export type {
+  HttpAdapter,
+  HttpAdapterRequest,
+  HttpLogEvent,
+  HttpLogger,
+  HttpLoggerOptions,
+} from "../../../internal/core/http/httpAdapter";
+export {
+  AuthyonAbility,
+  AuthyonAbilityBuilder,
+  createAuthyonRules,
+  createAuthyonAbility,
+} from "../../../internal/core/authorization/ability";
+export type {
+  AbilityConditions,
+  AbilityEvent,
+  AbilityListener,
+  AbilityRule,
+  AbilitySubject,
+  AuthyonPermissionSource,
+  AuthyonAbilityOptions,
+} from "../../../internal/core/authorization/ability";
 export type {
   Activity,
   AuthEvent,
   AuthStateListener,
+  AuthState,
   AuthenticatorSetup,
   AuthyonClientOptions,
-  CreateOrganizationParams,
+  CreateOrganizationInput,
   IntrospectResult,
-  InviteMemberParams,
-  LoginParams,
+  InviteMemberInput,
+  LoginInput,
   LoginResult,
   OrganizationMember,
-  Page,
-  PageParams,
-  RegisterParams,
+  Paged,
+  PaginationOptions,
+  RegisterInput,
   Role,
   Session,
   SessionInfo,
@@ -23,7 +61,7 @@ export type {
   SsoProvider,
   TokenStorage,
   TwoFactorChallenge,
-  TwoFactorVerifyParams,
+  VerifyTwoFactorInput,
   TwoFactorMethod,
   TwoFactorStatus,
   User,
@@ -31,4 +69,4 @@ export type {
   WebAuthnAssertion,
   WebAuthnCeremonyStart,
   WebAuthnCredential,
-} from "./types";
+} from "./contracts/auth";

@@ -69,7 +69,7 @@ async function regenerateRecoveryCodes(currentPassword: string) {
 }
 
 // ── 5. Completar um login que exigiu 2FA ────────────────────────────────────
-// (fluxo completo de login está em auth-flow.ts — aqui é só o passo de 2FA)
+// (fluxo completo de login está em authFlow.ts — aqui é só o passo de 2FA)
 
 async function completeLoginWithRecoveryCode(challengeToken: string, recoveryCode: string) {
   // Alternativa ao código do app: usar um recovery code de uso único quando

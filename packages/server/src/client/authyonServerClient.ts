@@ -1,4 +1,14 @@
-import { AuthyonError } from "./errors";
+import { DEFAULT_BASE_URL } from "../../../../internal/core/config/defaults";
+import { ExpiringTokenProvider } from "../../../../internal/core/auth/expiringTokenProvider";
+import {
+  JsonHttpClient,
+  type JsonRequestOptions,
+} from "../../../../internal/core/http/jsonHttpClient";
+import { createSharedTransport } from "../../../../internal/core/http/transport";
+import {
+  clientIpHeaders,
+  type ClientRequestContext,
+} from "../../../../internal/core/http/clientIp";
 import type {
   AuditEvent,
   AuthyonServerClientOptions,
@@ -12,8 +22,8 @@ import type {
   LoginActivity,
   Organization,
   OpenIdConfiguration,
-  Page,
-  PageParams,
+  Paged,
+  PaginationOptions,
   Permission,
   PermissionsByRole,
   ReservedPermissions,
@@ -24,28 +34,12 @@ import type {
   UpdateOrganizationInput,
   User,
   ValidateResult,
-} from "./types";
+} from "../contracts/server";
+import { JwksTokenVerifier, type AuthyonJwksDiscoveryOptions } from "../security/jwksTokenVerifier";
 
-const DEFAULT_BASE_URL = "https://api.authyon.com";
-/** Refresh the cached environment access token this many ms before it expires. */
-const EXPIRY_SKEW_MS = 30_000;
-
-interface RequestOptions {
-  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  body?: unknown;
-  query?: object;
-  headers?: Record<string, string>;
+interface RequestOptions extends JsonRequestOptions {
   /** Attach the cached environment access token, minting one first if needed. */
   envBearer?: boolean;
-}
-
-function toQuery(params: object = {}): string {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined) query.set(key, String(value));
-  }
-  const qs = query.toString();
-  return qs ? `?${qs}` : "";
 }
 
 /**
@@ -58,74 +52,54 @@ export class AuthyonServerClient {
   private readonly envKey?: string;
   private readonly clientId?: string;
   private readonly clientSecret?: string;
-  private readonly baseUrl: string;
-  private readonly fetchImpl: typeof fetch;
-  private environmentToken: { accessToken: string; expiresAt: number } | null = null;
-  private environmentTokenInFlight: Promise<string> | null = null;
+  private readonly transport: ReturnType<typeof createSharedTransport>;
+  private readonly http: JsonHttpClient;
+  private readonly environmentTokenProvider: ExpiringTokenProvider;
 
   constructor(options: AuthyonServerClientOptions = {}) {
     this.envKey = options.envKey;
     this.clientId = options.clientId;
     this.clientSecret = options.clientSecret;
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
-    this.fetchImpl = options.fetch ?? fetch.bind(globalThis);
+    this.transport = createSharedTransport({
+      baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
+      allowInsecureHttp: options.allowInsecureHttp,
+      timeoutMs: options.timeoutMs,
+      httpAdapter: options.httpAdapter,
+      httpLogger: options.httpLogger,
+      fetch: options.fetch,
+    });
+    this.http = new JsonHttpClient(this.transport);
+    this.environmentTokenProvider = new ExpiringTokenProvider(async () => {
+      if (!this.clientId || !this.clientSecret) {
+        throw new Error(
+          "Authyon: `clientId`/`clientSecret` are required for environment management calls " +
+            "(mint a pair in the console, under the environment's OAuth clients).",
+        );
+      }
+      const token = await this.environmentAuth.token({
+        clientId: this.clientId,
+        clientSecret: this.clientSecret,
+      });
+      return {
+        accessToken: token.access_token,
+        expiresAt: Date.now() + token.expires_in * 1000,
+      };
+    });
   }
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const headers: Record<string, string> = { ...options.headers };
-    if (options.body !== undefined) headers["Content-Type"] = "application/json";
-
     if (options.envBearer) {
       headers.Authorization = `Bearer ${await this.getEnvironmentAccessToken()}`;
     }
     if (this.envKey) headers["X-Authyon-Environment"] = this.envKey;
 
-    const response = await this.fetchImpl(`${this.baseUrl}${path}${toQuery(options.query)}`, {
-      method: options.method ?? "GET",
-      headers,
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-    });
-
-    if (!response.ok) {
-      let body: Record<string, string> = {};
-      try {
-        body = await response.json();
-      } catch {
-        /* non-JSON error body */
-      }
-      throw new AuthyonError(response.status, body);
-    }
-    if (response.status === 204) return undefined as T;
-    return (await response.json()) as T;
+    return this.http.request<T>(path, { ...options, headers });
   }
 
   /** Mints (and caches) an environment access token from `clientId`/`clientSecret`. */
   private async getEnvironmentAccessToken(): Promise<string> {
-    if (this.environmentToken && Date.now() < this.environmentToken.expiresAt - EXPIRY_SKEW_MS) {
-      return this.environmentToken.accessToken;
-    }
-    if (this.environmentTokenInFlight) return this.environmentTokenInFlight;
-
-    if (!this.clientId || !this.clientSecret) {
-      throw new Error(
-        "Authyon: `clientId`/`clientSecret` are required for environment management calls " +
-          "(mint a pair in the console, under the environment's OAuth clients).",
-      );
-    }
-
-    this.environmentTokenInFlight = this.environmentAuth
-      .token({ clientId: this.clientId, clientSecret: this.clientSecret })
-      .then((token) => {
-        this.environmentToken = {
-          accessToken: token.access_token,
-          expiresAt: Date.now() + token.expires_in * 1000,
-        };
-        return token.access_token;
-      })
-      .finally(() => {
-        this.environmentTokenInFlight = null;
-      });
-    return this.environmentTokenInFlight;
+    return this.environmentTokenProvider.getAccessToken();
   }
 
   // ── Discovery ──────────────────────────────────────────────────────────────
@@ -148,6 +122,20 @@ export class AuthyonServerClient {
       ),
   };
 
+  /** Discovers Authyon's trusted issuer/JWKS and creates a cached local access-token verifier. */
+  async createJwksTokenVerifier(options: AuthyonJwksDiscoveryOptions): Promise<JwksTokenVerifier> {
+    const { publishableKey, issuer, ...verifierOptions } = options;
+    const configuration = await this.discovery.openidConfiguration(publishableKey);
+    if (issuer && configuration.issuer !== issuer) {
+      throw new Error("Authyon: discovered JWT issuer does not match the configured issuer");
+    }
+    return new JwksTokenVerifier({
+      ...verifierOptions,
+      issuer: issuer ?? configuration.issuer,
+      jwksUri: configuration.jwks_uri,
+    });
+  }
+
   // ── Token verification ────────────────────────────────────────────────────
   //
   // Per RFC 7662 §2.1, the CALLER must authenticate here too — the token
@@ -158,17 +146,27 @@ export class AuthyonServerClient {
   // returns 401 with `WWW-Authenticate: Bearer`.
 
   /** POST /auth/introspect — lightweight token introspection (RFC 7662). */
-  introspect(token: string): Promise<IntrospectResult> {
-    return this.request("/auth/introspect", { method: "POST", envBearer: true, body: { token } });
+  introspect(token: string, context?: ClientRequestContext): Promise<IntrospectResult> {
+    return this.request("/auth/introspect", {
+      method: "POST",
+      envBearer: true,
+      body: { token },
+      headers: clientIpHeaders(context),
+    });
   }
 
   /** POST /auth/validate — recommended: cross-checks DB state, catches revocation immediately. */
-  async validate(token: string): Promise<ValidateResult> {
+  async validate(token: string, context?: ClientRequestContext): Promise<ValidateResult> {
     const raw = await this.request<{
       valid: boolean;
       reason?: string | null;
       profile: User | null;
-    }>("/auth/validate", { method: "POST", envBearer: true, body: { token } });
+    }>("/auth/validate", {
+      method: "POST",
+      envBearer: true,
+      body: { token },
+      headers: clientIpHeaders(context),
+    });
     return { valid: raw.valid, reason: raw.reason ?? null, user: raw.profile };
   }
 
@@ -217,7 +215,9 @@ export class AuthyonServerClient {
   readonly environment = {
     users: {
       /** GET /env/users — paginated list of users in the environment. */
-      list: (params: { search?: string } & PageParams = {}): Promise<Page<EnvironmentUser>> =>
+      list: (
+        params: { search?: string } & PaginationOptions = {},
+      ): Promise<Paged<EnvironmentUser>> =>
         this.request("/env/users", { envBearer: true, query: params }),
 
       /** POST /env/users — create a user in the environment; returns only the new id. */
@@ -372,7 +372,7 @@ export class AuthyonServerClient {
          * accepting `skip`/`take`), with the same shape
          * `environment.users.list()` items have.
          */
-        list: (tenantId: string, params: PageParams = {}): Promise<EnvironmentUser[]> =>
+        list: (tenantId: string, params: PaginationOptions = {}): Promise<EnvironmentUser[]> =>
           this.request(`/env/tenants/${encodeURIComponent(tenantId)}/members`, {
             envBearer: true,
             query: params,
@@ -512,11 +512,11 @@ export class AuthyonServerClient {
 
     audit: {
       /** GET /env/audit — paginated list of the environment's audit events. */
-      list: (params: PageParams = {}): Promise<Page<AuditEvent>> =>
+      list: (params: PaginationOptions = {}): Promise<Paged<AuditEvent>> =>
         this.request("/env/audit", { envBearer: true, query: params }),
 
       /** GET /env/audit/login-activity — paginated login activity in the environment. */
-      loginActivity: (params: PageParams = {}): Promise<Page<LoginActivity>> =>
+      loginActivity: (params: PaginationOptions = {}): Promise<Paged<LoginActivity>> =>
         this.request("/env/audit/login-activity", { envBearer: true, query: params }),
     },
   };
@@ -541,7 +541,16 @@ export class AuthyonServerClient {
   };
 
   /** @internal used by {@link TenantScopedClient} to share the base URL/fetch/error handling. */
-  _requestAsTenant<T>(accessToken: string, path: string, options: RequestOptions = {}): Promise<T> {
+  _requestAsTenant<T>(
+    accessToken: string,
+    path: string,
+    options: {
+      method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+      body?: unknown;
+      query?: object;
+      headers?: Record<string, string>;
+    } = {},
+  ): Promise<T> {
     return this.request(path, {
       ...options,
       headers: { ...options.headers, Authorization: `Bearer ${accessToken}` },
@@ -557,34 +566,21 @@ export class AuthyonServerClient {
  */
 export class TenantScopedClient {
   private readonly server: AuthyonServerClient;
-  private readonly credentials: ClientCredentials;
-  private token: { accessToken: string; expiresAt: number } | null = null;
-  private tokenInFlight: Promise<string> | null = null;
+  private readonly tokenProvider: ExpiringTokenProvider;
 
   constructor(server: AuthyonServerClient, credentials: ClientCredentials) {
     this.server = server;
-    this.credentials = credentials;
+    this.tokenProvider = new ExpiringTokenProvider(async () => {
+      const token = await this.server.tenantAuth.token(credentials);
+      return {
+        accessToken: token.access_token,
+        expiresAt: Date.now() + token.expires_in * 1000,
+      };
+    });
   }
 
   private async getAccessToken(): Promise<string> {
-    if (this.token && Date.now() < this.token.expiresAt - EXPIRY_SKEW_MS) {
-      return this.token.accessToken;
-    }
-    if (this.tokenInFlight) return this.tokenInFlight;
-
-    this.tokenInFlight = this.server.tenantAuth
-      .token(this.credentials)
-      .then((token) => {
-        this.token = {
-          accessToken: token.access_token,
-          expiresAt: Date.now() + token.expires_in * 1000,
-        };
-        return token.access_token;
-      })
-      .finally(() => {
-        this.tokenInFlight = null;
-      });
-    return this.tokenInFlight;
+    return this.tokenProvider.getAccessToken();
   }
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -601,7 +597,7 @@ export class TenantScopedClient {
      * user records), since both are the "admin" member listing as opposed
      * to `/auth/tenants/{id}/members`'s paginated, lightweight one.
      */
-    list: (params: PageParams = {}): Promise<EnvironmentUser[]> =>
+    list: (params: PaginationOptions = {}): Promise<EnvironmentUser[]> =>
       this.request("/tenant/members", { query: params }),
 
     /** POST /tenant/members — add a member to the token's tenant. */

@@ -11,7 +11,7 @@ export interface Organization {
 }
 
 /** POST /auth/tenants — creates an organization owned by the signed-in user. */
-export interface CreateOrganizationParams {
+export interface CreateOrganizationInput {
   name?: string;
   slug?: string;
   description?: string;
@@ -28,15 +28,9 @@ export interface OrganizationMember {
 }
 
 /** POST /auth/tenants/{tenantId}/members — invites a member by e-mail. */
-export interface InviteMemberParams {
+export interface InviteMemberInput {
   email: string;
   roles: string[];
-}
-
-/** Pagination options accepted by list endpoints. */
-export interface PageParams {
-  skip?: number;
-  take?: number;
 }
 
 /** Authenticated user profile. */
@@ -80,13 +74,13 @@ export interface TwoFactorChallenge {
 
 export type LoginResult = { twoFactorRequired: false; session: Session } | TwoFactorChallenge;
 
-export interface RegisterParams {
+export interface RegisterInput {
   email: string;
   username?: string;
   password: string;
 }
 
-export interface LoginParams {
+export interface LoginInput {
   /** Provide `email` or `username`. */
   email?: string;
   username?: string;
@@ -103,7 +97,7 @@ export interface WebAuthnAssertion {
 }
 
 /** POST /auth/2fa/verify — redeems a challenge from `login()`. */
-export interface TwoFactorVerifyParams {
+export interface VerifyTwoFactorInput {
   challengeToken: string;
   method: TwoFactorMethod;
   /** TOTP / email / recovery code. Omit when `method` is `"webauthn"`. */
@@ -172,18 +166,6 @@ export interface Activity {
   payloadJson?: string;
 }
 
-/** Paginated list envelope returned by `user.activities()`. */
-export interface Page<T> {
-  data: T[];
-  /** Item count actually returned for this page. */
-  perPage?: number;
-  pageSize: number;
-  total: number;
-  pages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
-
 /** A role available within an organization (tenant). */
 export interface Role {
   id: string;
@@ -205,22 +187,6 @@ export interface SessionInfo {
   lastUsedFromIp?: string | null;
 }
 
-/** POST /auth/introspect (RFC 7662) — confirmed against the live API. */
-export interface IntrospectResult {
-  active: boolean;
-  sub?: string;
-  username?: string | null;
-  email?: string | null;
-  roles?: string[] | null;
-  permissions?: string[];
-  client_id?: string;
-  scope?: string;
-  exp?: number;
-  iat?: number;
-  jti?: string;
-  token_type?: string;
-}
-
 /**
  * POST /auth/validate — confirmed against the live API. The wire shape is
  * `{ valid, reason, profile }`, not `{ user, organization }` as the
@@ -237,6 +203,7 @@ export interface ValidateResult {
 export type AuthEvent =
   | { type: "signed_in"; session: Session }
   | { type: "refreshed"; session: Session }
+  | { type: "session_validated"; session: Session }
   | { type: "signed_out" };
 
 export type AuthStateListener = (event: AuthEvent) => void;
@@ -248,18 +215,34 @@ export interface TokenStorage {
   clear(): void;
 }
 
+export type AuthState = "signed_out" | "authenticated" | "expired";
+
 export interface AuthyonClientOptions {
   /** Publishable environment key (`pk_live_...` / `pk_test_...`). */
   envKey: string;
-  /** API origin. Defaults to `https://api.authyon.com`. */
+  /** API origin. Defaults to `https://api.authyon.com`; HTTPS is required outside loopback. */
   baseUrl?: string;
-  /** Where tokens are persisted. Defaults to localStorage when available, memory otherwise. */
+  /** Allow an HTTP `baseUrl`. Intended only for explicitly trusted local development. */
+  allowInsecureHttp?: boolean;
+  /** Where tokens are persisted. Defaults to memory; persistent storage is explicit opt-in. */
   storage?: TokenStorage;
   /**
    * Automatically refresh the access token shortly before it expires and
    * retry once on 401. Defaults to `true`.
    */
   autoRefresh?: boolean;
-  /** Custom fetch implementation (useful for tests / non-browser runtimes). */
+  /** Maximum duration of each HTTP request. Defaults to 15 seconds; set to `0` to disable. */
+  timeoutMs?: number;
+  /** Custom HTTP adapter for tracing, mocks or an alternative HTTP stack. */
+  httpAdapter?: HttpAdapter;
+  /** Safe HTTP lifecycle logging. Disabled unless this option is provided with `enabled: true`. */
+  httpLogger?: HttpLoggerOptions;
+  /** @deprecated Prefer `httpAdapter: new FetchHttpAdapter(customFetch)`. */
   fetch?: typeof fetch;
 }
+import type { HttpAdapter, HttpLoggerOptions } from "../../../../internal/core/http/httpAdapter";
+export type {
+  IntrospectResult,
+  Paged,
+  PaginationOptions,
+} from "../../../../internal/core/contracts/common";

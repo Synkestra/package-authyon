@@ -79,22 +79,6 @@ export interface EnvironmentUser {
   customFields?: string;
 }
 
-/** POST /auth/introspect (RFC 7662) — confirmed against the live API. */
-export interface IntrospectResult {
-  active: boolean;
-  sub?: string;
-  username?: string | null;
-  email?: string | null;
-  roles?: string[] | null;
-  permissions?: string[];
-  client_id?: string;
-  scope?: string;
-  exp?: number;
-  iat?: number;
-  jti?: string;
-  token_type?: string;
-}
-
 /**
  * POST /auth/validate — confirmed against the live API. The wire shape is
  * `{ valid, reason, profile }`, not `{ user, organization }` as the
@@ -222,23 +206,6 @@ export type LoginActivity = AuditEvent;
  * Endpoints without `skip`/`take` params (e.g. `/env/tenants`) return a
  * bare array instead.
  */
-export interface Page<T> {
-  data: T[];
-  /** Item count actually returned for this page. */
-  perPage?: number;
-  pageSize: number;
-  total: number;
-  pages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
-
-/** Pagination options accepted by list endpoints. */
-export interface PageParams {
-  skip?: number;
-  take?: number;
-}
-
 /** OAuth 2.0 client-credentials pair minted in the Authyon console. */
 export interface ClientCredentials {
   clientId: string;
@@ -283,6 +250,20 @@ export interface AuthyonServerClientOptions {
   clientSecret?: string;
   /** API origin. Defaults to `https://api.authyon.com`. */
   baseUrl?: string;
-  /** Custom fetch implementation (useful for tests / edge runtimes). */
+  /** Allow an HTTP `baseUrl`. Intended only for explicitly trusted local development. */
+  allowInsecureHttp?: boolean;
+  /** Maximum duration of each HTTP request. Defaults to 15 seconds; set to `0` to disable. */
+  timeoutMs?: number;
+  /** Custom HTTP adapter for tracing, mocks or an alternative HTTP stack. */
+  httpAdapter?: HttpAdapter;
+  /** Safe HTTP lifecycle logging. Disabled unless this option is provided with `enabled: true`. */
+  httpLogger?: HttpLoggerOptions;
+  /** @deprecated Prefer `httpAdapter: new FetchHttpAdapter(customFetch)`. */
   fetch?: typeof fetch;
 }
+import type { HttpAdapter, HttpLoggerOptions } from "../../../../internal/core/http/httpAdapter";
+export type {
+  IntrospectResult,
+  Paged,
+  PaginationOptions,
+} from "../../../../internal/core/contracts/common";
