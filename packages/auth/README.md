@@ -57,6 +57,26 @@ Use o entrypoint dedicado `@authyon/auth/react`:
 
 O provider faz refresh automático, valida a sessão por `GET /auth/me`, atualiza usuário e permissions, revalida quando a aba volta ao foco e não libera guards enquanto a validação inicial estiver pendente. Use `useAuthyon()`, `useAuthyonAbility()` e `useCan()` para fluxos programáticos.
 
+Use `transformUser` para expor campos derivados sem alterar a sessão mantida pela lib:
+
+```tsx
+type ApplicationUser = User & { fullName: string };
+
+<AuthyonProvider<ApplicationUser>
+  client={authyon}
+  transformUser={(user) => ({
+    ...user,
+    fullName: [user.firstName, user.lastName].filter(Boolean).join(" "),
+  })}
+>
+  <App />
+</AuthyonProvider>;
+
+const { user, session } = useAuthyon<ApplicationUser>();
+```
+
+O usuário transformado é retornado em `user` e em `session.user` após validação, refresh, login e troca de organização. O transformador deve ser puro e só derivar dados do perfil do Authyon; dados externos pertencem ao contexto da aplicação.
+
 Para configuração progressiva, use o builder:
 
 ```ts

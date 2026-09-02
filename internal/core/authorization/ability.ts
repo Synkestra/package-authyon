@@ -123,6 +123,33 @@ export function createAuthyonAbility(
   return new AuthyonAbility(createAuthyonRules(source, options), options.detectSubjectType);
 }
 
+/** Checks an Authyon permission string using the same wildcard rules as an ability. */
+export function hasPermission(
+  source: AuthyonPermissionSource | readonly string[],
+  requiredPermission: string,
+): boolean {
+  const requirement = permissionToRule(requiredPermission);
+  if (
+    !requirement ||
+    typeof requirement.action !== "string" ||
+    typeof requirement.subject !== "string"
+  ) {
+    return false;
+  }
+
+  const permissionSource: AuthyonPermissionSource = isPermissionList(source)
+    ? { permissions: source }
+    : source;
+
+  return createAuthyonAbility(permissionSource).can(requirement.action, requirement.subject);
+}
+
+function isPermissionList(
+  source: AuthyonPermissionSource | readonly string[],
+): source is readonly string[] {
+  return Array.isArray(source);
+}
+
 /** Converts Authyon's `subject:action` permission strings to authorization rules. */
 export function createAuthyonRules(
   source: AuthyonPermissionSource = {},
@@ -158,7 +185,21 @@ function permissionToRule(permission: string): AbilityRule | null {
 
 function matchesToken(value: string | string[], expected: string, wildcard: string): boolean {
   return (Array.isArray(value) ? value : [value]).some(
-    (candidate) => candidate === expected || candidate === wildcard || candidate === "*",
+    (candidate) =>
+      candidate === expected ||
+      candidate === wildcard ||
+      candidate === "*" ||
+      matchesSegments(candidate, expected),
+  );
+}
+
+function matchesSegments(pattern: string, value: string): boolean {
+  const patternSegments = pattern.split(":");
+  const valueSegments = value.split(":");
+
+  return (
+    patternSegments.length === valueSegments.length &&
+    patternSegments.every((segment, index) => segment === "*" || segment === valueSegments[index])
   );
 }
 

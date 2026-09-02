@@ -17,7 +17,10 @@ export interface SessionControllerOptions {
 
 export type SessionSnapshotListener = () => void;
 const SERVER_SNAPSHOT: SessionSnapshot = {
-  status: "unauthenticated",
+  // The server cannot inspect browser storage. Reporting unauthenticated here
+  // makes guards redirect during hydration before a persisted session can be
+  // restored and validated on the client.
+  status: "validating",
   session: null,
   user: null,
   error: null,

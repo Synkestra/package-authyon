@@ -5,7 +5,7 @@ SDK server-side para o [Authyon](https://authyon.com) — administração de amb
 ## Instalação da beta
 
 ```bash
-npm install --save-exact @authyon/server@0.2.0-beta.1
+npm install --save-exact @authyon/server@0.2.0-beta.2
 ```
 
 Durante a beta, `npm install @authyon/server@beta` acompanha o prerelease mais recente. Fixar a versão exata é recomendado para builds reproduzíveis.
@@ -93,6 +93,11 @@ Usa as credenciais de ambiente (`clientId`/`clientSecret`) automaticamente — o
 
 ```ts
 const org = await authyon.environment.tenants.create({ name: "Acme", slug: "acme" });
+const tenants = await authyon.environment.tenants.list({
+  search: "acme",
+  skip: 0,
+  take: 20,
+});
 await authyon.environment.tenants.members.add(org.id, userId, ["owner"]);
 await authyon.environment.tenants.members.assignRole(org.id, userId, "billing-admin");
 await authyon.environment.tenants.members.remove(org.id, userId);

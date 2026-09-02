@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AuthyonAbilityBuilder, createAuthyonAbility } from "../packages/auth/dist/index.js";
+import {
+  AuthyonAbilityBuilder,
+  createAuthyonAbility,
+  hasPermission,
+} from "../packages/auth/dist/index.js";
 import { createAuthyonAbility as createServerAbility } from "../packages/server/dist/index.js";
 
 test("creates deny-by-default abilities from Authyon permissions", () => {
@@ -14,6 +18,18 @@ test("creates deny-by-default abilities from Authyon permissions", () => {
   assert.equal(ability.can("read", "reports"), true);
   assert.equal(ability.can("delete", "reports"), true);
   assert.equal(ability.cannot("delete", "tickets"), true);
+});
+
+test("supports wildcards in namespaced permission segments", () => {
+  const source = { permissions: ["monkeypay:*:*"] };
+  const ability = createAuthyonAbility(source);
+
+  assert.equal(ability.can("read", "monkeypay:wallets"), true);
+  assert.equal(ability.can("write", "monkeypay:routing-rules"), true);
+  assert.equal(ability.can("read", "another:wallets"), false);
+  assert.equal(hasPermission(source, "monkeypay:wallets:read"), true);
+  assert.equal(hasPermission(source.permissions, "monkeypay:wallets:read"), true);
+  assert.equal(hasPermission(source, "another:wallets:read"), false);
 });
 
 test("supports conditions, fields, inverted rules and last-rule precedence", () => {

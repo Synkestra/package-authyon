@@ -44,6 +44,12 @@ function fakeClient() {
   };
 }
 
+test("server snapshot stays validating until browser storage is checked", () => {
+  const controller = new AuthyonSessionController(fakeClient());
+
+  assert.equal(controller.getServerSnapshot().status, "validating");
+});
+
 test("session controller validates with me before authenticating", async () => {
   const client = fakeClient();
   const controller = new AuthyonSessionController(client);

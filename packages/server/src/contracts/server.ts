@@ -26,6 +26,8 @@ export interface User {
   id: string;
   email: string;
   username?: string;
+  /** Environment-level roles from the database-validated user profile. */
+  roles?: string[];
   permissions?: string[];
 }
 
@@ -203,8 +205,7 @@ export type LoginActivity = AuditEvent;
 /**
  * Envelope every `skip`/`take`-paginated list endpoint returns, confirmed
  * live for `/env/users`, `/env/audit` and `/env/audit/login-activity`.
- * Endpoints without `skip`/`take` params (e.g. `/env/tenants`) return a
- * bare array instead.
+ * Endpoints without `skip`/`take` params return a bare array instead.
  */
 /** OAuth 2.0 client-credentials pair minted in the Authyon console. */
 export interface ClientCredentials {

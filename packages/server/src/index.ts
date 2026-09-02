@@ -24,6 +24,7 @@ export {
   AuthyonAbilityBuilder,
   createAuthyonRules,
   createAuthyonAbility,
+  hasPermission,
 } from "../../../internal/core/authorization/ability";
 export {
   AuthorizationError,

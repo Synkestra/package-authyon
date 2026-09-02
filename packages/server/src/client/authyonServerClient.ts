@@ -338,8 +338,9 @@ export class AuthyonServerClient {
     },
 
     tenants: {
-      /** GET /env/tenants — list tenants in the environment. */
-      list: (): Promise<Organization[]> => this.request("/env/tenants", { envBearer: true }),
+      /** GET /env/tenants — paginated, searchable list of tenants in the environment. */
+      list: (params: { search?: string } & PaginationOptions = {}): Promise<Paged<Organization>> =>
+        this.request("/env/tenants", { envBearer: true, query: params }),
 
       /** POST /env/tenants — create a tenant in the environment. */
       create: (input: CreateOrganizationInput): Promise<Organization> =>

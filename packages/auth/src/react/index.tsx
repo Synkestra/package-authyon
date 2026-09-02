@@ -17,33 +17,51 @@ import {
   type AuthyonAbilityOptions,
 } from "../../../../internal/core/authorization/ability";
 import type { AuthyonClient } from "../client/authyonClient";
+import type { Session, User } from "../contracts/auth";
 import {
   AuthyonSessionController,
   type SessionControllerOptions,
   type SessionSnapshot,
 } from "../session/sessionController";
 
-export interface AuthyonProviderProps extends SessionControllerOptions {
+export interface AuthyonProviderProps<TUser extends User = User> extends SessionControllerOptions {
   client: AuthyonClient;
   children: ReactNode;
   /** Revalidate with `/auth/me` when the tab becomes visible. Defaults to true. */
   validateOnFocus?: boolean;
+  /** Derives the user exposed by `useAuthyon` without mutating the stored Authyon session. */
+  transformUser?: (user: User) => TUser;
 }
 
-interface AuthyonReactContextValue extends SessionSnapshot {
+export type AuthyonSession<TUser extends User = User> = Omit<Session, "user"> & {
+  user?: TUser;
+};
+
+export type AuthyonSessionSnapshot<TUser extends User = User> = Omit<
+  SessionSnapshot,
+  "session" | "user"
+> & {
+  session: AuthyonSession<TUser> | null;
+  user: TUser | null;
+};
+
+export interface AuthyonReactContextValue<
+  TUser extends User = User,
+> extends AuthyonSessionSnapshot<TUser> {
   client: AuthyonClient;
-  validateSession(): Promise<SessionSnapshot>;
-  refreshSession(): Promise<SessionSnapshot>;
+  validateSession(): Promise<AuthyonSessionSnapshot<TUser>>;
+  refreshSession(): Promise<AuthyonSessionSnapshot<TUser>>;
 }
 
 const AuthyonReactContext = createContext<AuthyonReactContextValue | null>(null);
 
-export function AuthyonProvider({
+export function AuthyonProvider<TUser extends User = User>({
   client,
   children,
   refreshAheadMs,
   validateOnFocus = true,
-}: AuthyonProviderProps) {
+  transformUser,
+}: AuthyonProviderProps<TUser>) {
   const controllerRef = useRef<AuthyonSessionController | null>(null);
   if (!controllerRef.current || controllerRef.current.client !== client) {
     controllerRef.current = new AuthyonSessionController(client, { refreshAheadMs });
@@ -65,22 +83,46 @@ export function AuthyonProvider({
     return () => document.removeEventListener("visibilitychange", validateWhenVisible);
   }, [controller, validateOnFocus]);
 
-  const value = useMemo<AuthyonReactContextValue>(
+  const exposedSnapshot = useMemo(
+    () => transformSnapshot(snapshot, transformUser),
+    [snapshot, transformUser],
+  );
+  const value = useMemo<AuthyonReactContextValue<TUser>>(
     () => ({
-      ...snapshot,
+      ...exposedSnapshot,
       client,
-      validateSession: () => controller.validate(),
-      refreshSession: () => controller.refreshNow(),
+      validateSession: async () => transformSnapshot(await controller.validate(), transformUser),
+      refreshSession: async () => transformSnapshot(await controller.refreshNow(), transformUser),
     }),
-    [client, controller, snapshot],
+    [client, controller, exposedSnapshot, transformUser],
   );
   return createElement(AuthyonReactContext.Provider, { value }, children);
 }
 
-export function useAuthyon(): AuthyonReactContextValue {
+export function useAuthyon<TUser extends User = User>(): AuthyonReactContextValue<TUser> {
   const context = useContext(AuthyonReactContext);
   if (!context) throw new Error("Authyon: `useAuthyon` must be used inside `AuthyonProvider`");
-  return context;
+  return context as AuthyonReactContextValue<TUser>;
+}
+
+function transformSnapshot<TUser extends User>(
+  snapshot: SessionSnapshot,
+  transformUser?: (user: User) => TUser,
+): AuthyonSessionSnapshot<TUser> {
+  const mapUser = (user: User): TUser => (transformUser ? transformUser(user) : (user as TUser));
+  const user = snapshot.user ? mapUser(snapshot.user) : null;
+  const session = snapshot.session
+    ? {
+        ...snapshot.session,
+        user: snapshot.session.user
+          ? snapshot.session.user === snapshot.user && user
+            ? user
+            : mapUser(snapshot.session.user)
+          : undefined,
+      }
+    : null;
+
+  return { ...snapshot, session, user };
 }
 
 export function useAuthyonAbility(options: AuthyonAbilityOptions = {}): AuthyonAbility {

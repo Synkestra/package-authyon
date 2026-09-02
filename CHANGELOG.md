@@ -2,6 +2,12 @@
 
 Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa versionamento semântico e mantém `@authyon/auth` e `@authyon/server` na mesma versão.
 
+## 0.2.0-beta.2
+
+### Alterado
+
+- `environment.tenants.list()` agora aceita `search`, `skip` e `take` e retorna a paginação padronizada `Paged<Organization>`.
+
 ## 0.2.0-beta.1
 
 Republicação da beta com a versão corrigida. Mantém as funcionalidades e correções descritas abaixo para a nova rodada de homologação.
