@@ -207,6 +207,37 @@ export type LoginActivity = AuditEvent;
  * live for `/env/users`, `/env/audit` and `/env/audit/login-activity`.
  * Endpoints without `skip`/`take` params return a bare array instead.
  */
+/** Tenant credential metadata. Listing never returns the secret. */
+export interface TenantCredentialSummary {
+  id: string;
+  clientId: string;
+  description: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  expiresAt: string | null;
+  isActive: boolean;
+  permissions: string[];
+}
+
+/** Input for a tenant machine credential. Requires at least one explicit permission. */
+export interface CreateTenantCredentialInput {
+  description: string;
+  /** Number of days until the tenant credential expires. Omit for no automatic expiration. */
+  lifetimeDays?: number | null;
+  permissions: string[];
+}
+
+/** The plaintext secret is returned only when the credential is issued. */
+export interface TenantCredentialIssued {
+  credentialId: string;
+  clientId: string;
+  clientSecret: string;
+  createdAt: string;
+  expiresAt: string | null;
+  permissions: string[];
+}
+
 /** OAuth 2.0 client-credentials pair minted in the Authyon console. */
 export interface ClientCredentials {
   clientId: string;

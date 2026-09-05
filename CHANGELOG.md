@@ -2,6 +2,16 @@
 
 Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa versionamento semântico e mantém `@authyon/auth` e `@authyon/server` na mesma versão.
 
+## Não publicado
+
+- Credenciais de tenant com `listPage`, busca combinada e `get` seguro; `list` mantém o retorno em array, inclusive na API paginada.
+- Alias explícito `scopes` para permissões de credenciais, preservando o contrato `permissions`.
+- Contextos isolados `platform(token)` e `user(token)` para administração de credenciais, convites e remoção de membros.
+- Equipe de workspace, convite, revogação, alteração de papel e aceite de convite.
+- Listagem/detalhe de credenciais com projeção de campos permitidos; tokens de convite ocultos nos logs.
+- Fetch rejeita redirects; configure a URL final da API. Tokens de máquina e segredo do cliente/builder ficam em campos privados em runtime.
+- Testes de compatibilidade, paginação, autorização, scopes, membros e segurança do transporte.
+
 ## 0.2.0-beta.2
 
 ### Alterado

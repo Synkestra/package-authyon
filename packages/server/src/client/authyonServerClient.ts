@@ -1,3 +1,23 @@
+import type {
+  AccessTokenSource,
+  CreateCredentialInput,
+  CredentialDetail,
+  CredentialListOptions,
+  CredentialPermissionsInput,
+} from "../contracts/management";
+import {
+  allCredentials,
+  credentialPage,
+  credentialDetail,
+  permissionsBody,
+  lifetimeBody,
+  segment,
+} from "./credentialManagement";
+import {
+  PlatformScopedClient,
+  UserScopedClient,
+  WorkspaceInvitesClient,
+} from "./scopedManagementClient";
 import { DEFAULT_BASE_URL } from "../../../../internal/core/config/defaults";
 import { ExpiringTokenProvider } from "../../../../internal/core/auth/expiringTokenProvider";
 import {
@@ -13,6 +33,9 @@ import type {
   AuditEvent,
   AuthyonServerClientOptions,
   ClientCredentials,
+  CreateTenantCredentialInput,
+  TenantCredentialIssued,
+  TenantCredentialSummary,
   CreateOrganizationInput,
   CreatePermissionInput,
   CreateUserInput,
@@ -51,7 +74,7 @@ interface RequestOptions extends JsonRequestOptions {
 export class AuthyonServerClient {
   private readonly envKey?: string;
   private readonly clientId?: string;
-  private readonly clientSecret?: string;
+  #clientSecret?: string;
   private readonly transport: ReturnType<typeof createSharedTransport>;
   private readonly http: JsonHttpClient;
   private readonly environmentTokenProvider: ExpiringTokenProvider;
@@ -59,7 +82,7 @@ export class AuthyonServerClient {
   constructor(options: AuthyonServerClientOptions = {}) {
     this.envKey = options.envKey;
     this.clientId = options.clientId;
-    this.clientSecret = options.clientSecret;
+    this.#clientSecret = options.clientSecret;
     this.transport = createSharedTransport({
       baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
       allowInsecureHttp: options.allowInsecureHttp,
@@ -70,7 +93,7 @@ export class AuthyonServerClient {
     });
     this.http = new JsonHttpClient(this.transport);
     this.environmentTokenProvider = new ExpiringTokenProvider(async () => {
-      if (!this.clientId || !this.clientSecret) {
+      if (!this.clientId || !this.#clientSecret) {
         throw new Error(
           "Authyon: `clientId`/`clientSecret` are required for environment management calls " +
             "(mint a pair in the console, under the environment's OAuth clients).",
@@ -78,7 +101,7 @@ export class AuthyonServerClient {
       }
       const token = await this.environmentAuth.token({
         clientId: this.clientId,
-        clientSecret: this.clientSecret,
+        clientSecret: this.#clientSecret,
       });
       return {
         accessToken: token.access_token,
@@ -210,6 +233,20 @@ export class AuthyonServerClient {
     return new TenantScopedClient(this, credentials);
   }
 
+  /** Uses only the supplied platform-user access token. */
+  platform(token: AccessTokenSource): PlatformScopedClient {
+    return new PlatformScopedClient((path, options) => this.http.request(path, options), token);
+  }
+
+  /** Uses an end-user token; the configured environment key selects the environment. */
+  user(token: AccessTokenSource): UserScopedClient {
+    return new UserScopedClient((path, options) => this.request(path, options), token);
+  }
+
+  readonly workspaceInvites = new WorkspaceInvitesClient((path, options) =>
+    this.http.request(path, options),
+  );
+
   // ── Environment management (users, tenants, roles, permissions, audit) ───
 
   readonly environment = {
@@ -338,6 +375,69 @@ export class AuthyonServerClient {
     },
 
     tenants: {
+      credentials: {
+        /** GET /env/tenants/{tenantId}/credentials. Returns metadata only, including revoked credentials. */
+        list: (tenantId: string): Promise<TenantCredentialSummary[]> =>
+          allCredentials(
+            (path, options) => this.request(path, { ...options, envBearer: true }),
+            `/env/tenants/${segment(tenantId)}/credentials`,
+          ),
+        /** Paginated searchable listing. Prefer this over loading every credential. */
+        listPage: (
+          tenantId: string,
+          options: CredentialListOptions = {},
+        ): Promise<Paged<TenantCredentialSummary>> =>
+          credentialPage(
+            (path, requestOptions) => this.request(path, { ...requestOptions, envBearer: true }),
+            `/env/tenants/${segment(tenantId)}/credentials`,
+            options,
+          ),
+        get: async (tenantId: string, credentialId: string): Promise<CredentialDetail> =>
+          credentialDetail(
+            await this.request(
+              `/env/tenants/${segment(tenantId)}/credentials/${segment(credentialId)}`,
+              { envBearer: true },
+            ),
+          ),
+        /** Explicit scopes/permissions; only issuance returns the client secret. */
+        create: (
+          tenantId: string,
+          input: CreateTenantCredentialInput | CreateCredentialInput,
+        ): Promise<TenantCredentialIssued> =>
+          this.request(`/env/tenants/${segment(tenantId)}/credentials`, {
+            method: "POST",
+            envBearer: true,
+            body: { description: input.description, ...lifetimeBody(input), ...permissionsBody(input) },
+          }),
+        /** Returns a new secret once while keeping the same client id. */
+        rotate: (tenantId: string, credentialId: string): Promise<TenantCredentialIssued> =>
+          this.request(
+            `/env/tenants/${segment(tenantId)}/credentials/${segment(credentialId)}/rotate`,
+            { method: "POST", envBearer: true },
+          ),
+        updatePermissions: (
+          tenantId: string,
+          credentialId: string,
+          input: CredentialPermissionsInput,
+        ): Promise<void> =>
+          this.request(
+            `/env/tenants/${segment(tenantId)}/credentials/${segment(credentialId)}/permissions`,
+            { method: "PUT", envBearer: true, body: permissionsBody(input) },
+          ),
+        updateScopes: (
+          tenantId: string,
+          credentialId: string,
+          scopes: readonly string[],
+        ): Promise<void> =>
+          this.environment.tenants.credentials.updatePermissions(tenantId, credentialId, {
+            scopes,
+          }),
+        revoke: (tenantId: string, credentialId: string): Promise<void> =>
+          this.request(`/env/tenants/${segment(tenantId)}/credentials/${segment(credentialId)}`, {
+            method: "DELETE",
+            envBearer: true,
+          }),
+      },
       /** GET /env/tenants — paginated, searchable list of tenants in the environment. */
       list: (params: { search?: string } & PaginationOptions = {}): Promise<Paged<Organization>> =>
         this.request("/env/tenants", { envBearer: true, query: params }),

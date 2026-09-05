@@ -67,6 +67,9 @@ export type {
   AuditEvent,
   AuthyonServerClientOptions,
   ClientCredentials,
+  CreateTenantCredentialInput,
+  TenantCredentialIssued,
+  TenantCredentialSummary,
   CreateOrganizationInput,
   CreatePermissionInput,
   CreateUserInput,
@@ -92,3 +95,10 @@ export type {
   User,
   ValidateResult,
 } from "./contracts/server";
+
+export type * from "./contracts/management";
+export {
+  PlatformScopedClient,
+  UserScopedClient,
+  WorkspaceInvitesClient,
+} from "./client/scopedManagementClient";

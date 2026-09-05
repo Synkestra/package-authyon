@@ -7,8 +7,8 @@ export interface AcquiredToken {
 
 /** In-memory single-flight provider for short-lived machine tokens. */
 export class ExpiringTokenProvider {
-  private token: AcquiredToken | null = null;
-  private inFlight: Promise<string> | null = null;
+  #token: AcquiredToken | null = null;
+  #inFlight: Promise<string> | null = null;
 
   constructor(
     private readonly acquire: () => Promise<AcquiredToken>,
@@ -16,23 +16,23 @@ export class ExpiringTokenProvider {
   ) {}
 
   async getAccessToken(): Promise<string> {
-    if (this.token && Date.now() < this.token.expiresAt - this.expirySkewMs) {
-      return this.token.accessToken;
+    if (this.#token && Date.now() < this.#token.expiresAt - this.expirySkewMs) {
+      return this.#token.accessToken;
     }
-    if (this.inFlight) return this.inFlight;
+    if (this.#inFlight) return this.#inFlight;
 
-    this.inFlight = this.acquire()
+    this.#inFlight = this.acquire()
       .then((token) => {
-        this.token = token;
+        this.#token = token;
         return token.accessToken;
       })
       .finally(() => {
-        this.inFlight = null;
+        this.#inFlight = null;
       });
-    return this.inFlight;
+    return this.#inFlight;
   }
 
   clear(): void {
-    this.token = null;
+    this.#token = null;
   }
 }

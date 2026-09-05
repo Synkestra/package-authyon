@@ -58,6 +58,7 @@ export class FetchHttpAdapter implements HttpAdapter {
       headers: request.headers,
       body: request.body,
       signal: request.signal,
+      redirect: "error",
     });
   }
 }
@@ -118,6 +119,10 @@ function defaultHttpLogger(event: HttpLogEvent): void {
 
 function sanitizeUrl(value: string): string {
   const url = new URL(value);
+  url.username = "";
+  url.password = "";
+  url.hash = "";
+  url.pathname = url.pathname.replace(/(\/platform\/workspace-invites\/)[^/]+/u, "$1REDACTED");
   const queryKeys = new Set<string>();
   url.searchParams.forEach((_value, key) => queryKeys.add(key));
   url.search =
