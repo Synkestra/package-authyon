@@ -1,6 +1,6 @@
 {
   "name": "@authyon/server",
-  "version": "0.2.0-beta.3",
+  "version": "0.2.0-beta.4",
   "description": "Authyon SDK for backends — server-to-server organization/member management and access-token verification.",
   "license": "MIT",
   "type": "module",
@@ -26,6 +26,12 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs",
       "default": "./dist/index.js"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js",
+      "require": "./dist/next.cjs",
+      "default": "./dist/next.js"
     }
   },
   "files": [
@@ -37,7 +43,7 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsup src/index.ts src/browser.ts --format esm,cjs --dts --clean",
+    "build": "tsup src/index.ts src/browser.ts src/next.ts --format esm,cjs --dts --clean",
     "typecheck": "tsc --noEmit",
     "prepack": "npm run build"
   },
@@ -48,11 +54,20 @@
     "management-api",
     "tokenVerification"
   ],
-  "devDependencies": {
-    "tsup": "^8.0.0",
-    "typescript": "^5.5.0"
-  },
   "dependencies": {
     "jose": "^6.2.10"
+  },
+  "peerDependencies": {
+    "react": ">=18.2.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.18",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0"
   }
 }

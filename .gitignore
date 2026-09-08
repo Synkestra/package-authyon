@@ -3,6 +3,7 @@ dist/
 docs/*
 !docs/README.md
 !docs/gettingStarted.md
+!docs/nextjs.md
 !docs/security.md
 !docs/releaseBeta.md
 !docs/examples/

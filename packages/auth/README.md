@@ -9,7 +9,7 @@ Para gestão de organização/membros (secret key) e verificação de token no b
 ## Instalação
 
 ```bash
-npm install --save-exact @authyon/auth@0.2.0-beta.1
+npm install --save-exact @authyon/auth@0.2.0-beta.4
 ```
 
 Durante a beta, `npm install @authyon/auth@beta` acompanha o prerelease mais recente. Fixar a versão exata é recomendado para builds reproduzíveis.

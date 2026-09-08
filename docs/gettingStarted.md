@@ -19,8 +19,8 @@ npm install @authyon/server@beta
 Para builds reproduzíveis durante a homologação, fixe a versão:
 
 ```bash
-npm install --save-exact @authyon/auth@0.2.0-beta.1
-npm install --save-exact @authyon/server@0.2.0-beta.1
+npm install --save-exact @authyon/auth@0.2.0-beta.4
+npm install --save-exact @authyon/server@0.2.0-beta.4
 ```
 
 React é peer dependency opcional. Ele só é necessário ao importar `@authyon/auth/react`.
@@ -74,6 +74,7 @@ Para APIs protegidas, valide a assinatura e as claims do bearer token por JWKS. 
 
 ## Próximos passos
 
+- [Guia dedicado de Next.js](./nextjs.md)
 - [Autorização completa no React e Next.js](./examples/nextReactAuthorization.md)
 - [Abilities e permissões](./examples/authorization.md)
 - [HttpAdapter e logger](./examples/httpAdapter.md)

@@ -17,8 +17,10 @@ Esta pasta reúne a referência gerada pelo TypeDoc e a documentação prática 
 - [Rotas públicas e privadas](./examples/publicPrivateRoutes.md)
 - [Configuração de 2FA](./examples/twoFactorSetup.md)
 - [Login com JavaScript puro](./examples/vanillaLogin.md)
-- [Next.js Client Side](./examples/nextClient.md)
-- [Autorização no Next.js e React](./examples/nextReactAuthorization.md)
+
+## Next.js
+
+- [Guia dedicado de Next.js](./nextjs.md)
 
 ## Backend e autorização
 
@@ -26,7 +28,6 @@ Esta pasta reúne a referência gerada pelo TypeDoc e a documentação prática 
 - [Verificação de token](./examples/tokenVerification.md)
 - [Validação JWT com JWKS](./examples/jwksVerification.md)
 - [Gerenciamento de organizações](./examples/organizationMembership.md)
-- [Next.js Server Side](./examples/nextServer.md)
 - [Express](./examples/express.md)
 - [Abilities e permissões](./examples/authorization.md)
 

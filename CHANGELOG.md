@@ -4,6 +4,19 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+## 0.2.0-beta.4
+
+### Adicionado
+
+- Entry point `@authyon/server/next` com `PermissionGuard` server-side para uso em layouts e páginas do Next.js.
+- Guia dedicado de Next.js reunindo Client Components, Route Handlers, Server Actions e proteção de layout.
+
+### Alterado
+
+- `@authyon/auth` e `@authyon/server` voltam a ser preparados em lockstep para publicação.
+
+## 0.2.0-beta.3
+
 - Credenciais de tenant com `listPage`, busca combinada e `get` seguro; `list` mantém o retorno em array, inclusive na API paginada.
 - Alias explícito `scopes` para permissões de credenciais, preservando o contrato `permissions`.
 - Contextos isolados `platform(token)` e `user(token)` para administração de credenciais, convites e remoção de membros.
