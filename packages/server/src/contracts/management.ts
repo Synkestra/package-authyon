@@ -9,7 +9,10 @@ export interface CredentialListOptions extends PaginationOptions {
 export type CredentialPermissionsInput =
   | { permissions: readonly string[]; scopes?: never }
   | { scopes: readonly string[]; permissions?: never };
-export type CreateCredentialInput = CredentialPermissionsInput & { description?: string; lifetimeDays?: number | null };
+export type CreateCredentialInput = CredentialPermissionsInput & {
+  description?: string;
+  lifetimeDays?: number | null;
+};
 export interface CredentialScope {
   workspaceId: string;
   environmentId: string;
@@ -104,4 +107,3 @@ export interface TenantMember {
   lastLoginAt: string | null;
 }
 export type TenantMemberPage = Paged<TenantMember>;
-

@@ -203,7 +203,11 @@ test("platform credential lifecycle uses only supplied platform token and correc
 test("environment tenant credential lifecycle supports rotate and revoke", async () => {
   const { client, requests } = fixture((request) =>
     request.url.endsWith("/rotate")
-      ? globalThis.Response.json({ credentialId: "c1", clientId: "tc_1", clientSecret: "new-secret" })
+      ? globalThis.Response.json({
+          credentialId: "c1",
+          clientId: "tc_1",
+          clientSecret: "new-secret",
+        })
       : new globalThis.Response(null, { status: 204 }),
   );
   const rotated = await client.environment.tenants.credentials.rotate("tenant/a", "c/a");
@@ -225,10 +229,7 @@ test("environment tenant credential lifecycle supports rotate and revoke", async
   assert.deepEqual(JSON.parse(requests[2].body), {
     permissions: ["billing:invoices:write"],
   });
-  assert.equal(
-    requests[3].url,
-    "https://api.authyon.com/env/tenants/tenant%2Fa/credentials/c%2Fa",
-  );
+  assert.equal(requests[3].url, "https://api.authyon.com/env/tenants/tenant%2Fa/credentials/c%2Fa");
   assert.equal(requests[3].method, "DELETE");
   for (const request of requests.slice(1)) {
     const headers = new globalThis.Headers(request.headers);
