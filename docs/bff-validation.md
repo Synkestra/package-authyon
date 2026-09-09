@@ -49,9 +49,11 @@ reformatação de arquivos alheios ao escopo.
 
 ## Limites da evidência
 
-- O adapter Redis foi validado com um double de CAS/TTL; a cifra usa a implementação
-  real de `jose`. O script Lua não foi executado contra Redis real nesta sessão.
-  O Docker local não respondeu por indisponibilidade do serviço Linux.
+- O adapter Redis mantém os testes rápidos com um double de CAS/TTL e ganhou um
+  teste de integração com dois clientes `node-redis`. O CI fornece um Redis real
+  e executa o script Lua para comprovar exclusão mútua entre writers, TTL e cifra.
+  Sem `AUTHYON_REDIS_TEST_URL`, o teste é ignorado de forma explícita; o Docker
+  local continuou indisponível nesta sessão.
 - O contrato de rede foi testado com o `HttpAdapter` simulado. Não houve login,
   rotação nem revogação em uma conta real do Authyon nesta implementação.
 - Sem publicação npm, rollout, migração MonkeyPay ou QA de browser autenticado.
@@ -61,10 +63,9 @@ reformatação de arquivos alheios ao escopo.
 
 ## Próxima validação de adoção
 
-1. Exercitar CAS/Lua em Redis real com duas instâncias do aplicativo.
-2. Confirmar respostas e semântica do Authyon para login, 2FA, refresh, validate,
+1. Confirmar respostas e semântica do Authyon para login, 2FA, refresh, validate,
    logout e troca de tenant no ambiente de homologação autorizado.
-3. Integrar o consumidor, configurar infraestrutura/rate limit e validar UI,
+2. Integrar o consumidor, configurar infraestrutura/rate limit e validar UI,
    troca de tenant, expiração, logout e sincronização entre abas.
-4. Preparar a versão de release em lockstep. A versão ainda é beta.4 no checkout;
+3. Preparar a versão de release em lockstep. A versão ainda é beta.4 no checkout;
    o pacote atual não deve ser publicado por cima de uma versão já existente.

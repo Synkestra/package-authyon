@@ -15,7 +15,7 @@ existente de `packages/auth`, `internal` ou dos clientes e contratos atuais de
 | GAP-04 | Expiração da cifra | Resolvido | O Redis e os limites absoluto/ocioso são a fonte do prazo; a JWE protege o conteúdo sem manter um segundo relógio de expiração. |
 | GAP-05 | Concorrência em leituras | Correção local necessária | Leituras comuns reservavam a sessão durante a validação no provedor, enfileirando requisições paralelas do mesmo navegador. |
 | GAP-06 | Dados vindos do Redis | Correção local necessária | Uma JWE íntegra, mas com estrutura inesperada, podia atravessar o limite de persistência sem validação de formato. |
-| GAP-07 | Redis real | Validação externa pendente | O double cobre CAS/TTL e a cifra real; falta executar o Lua contra Redis real com mais de uma instância. |
+| GAP-07 | Redis real | Resolvido no CI | Um Redis de serviço recebe dois clientes independentes; o teste executa o Lua e comprova CAS concorrente, TTL, cifra e exclusão. |
 | GAP-08 | Authyon real | Validação externa pendente | Falta confirmar login, 2FA, refresh, validate, logout e troca de tenant em homologação autorizada. |
 | GAP-09 | Consumidor MonkeyPay | Adoção pendente | A biblioteca ainda não foi integrada nem validada no navegador autenticado do MonkeyPay. |
 | GAP-10 | Release | Etapa de publicação | A versão continua beta.4; deve ser atualizada apenas no fluxo de release, sem sobrescrever pacote publicado. |
@@ -42,3 +42,5 @@ integrar o MonkeyPay ou concluir a ADR-003.
 
 Os testes novos demonstram três validações comuns simultâneas, uma única renovação
 concorrente e rejeição de uma JWE válida que contém uma sessão malformada.
+O teste de integração Redis usa dois clientes reais contra a mesma chave e exige
+que somente um writer concorrente consiga avançar a revisão.
