@@ -3,15 +3,20 @@ name: Publish to npm
 on:
   release:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to publish or resume
+        required: true
+        type: string
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      # Lets npm exchange this for a short-lived, per-run npm auth token
-      # (Trusted Publishing / OIDC) — no NPM_TOKEN secret needed at all.
-      id-token: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag }}
     steps:
       # Checks out the exact commit the release tag points to (detached
       # HEAD) — we build and publish precisely what was tagged, not
@@ -19,12 +24,19 @@ jobs:
       # GITHUB_TOKEN (contents: write above is enough for the push-back
       # step below); no push-triggered workflow exists here to loop into.
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
           registry-url: https://registry.npmjs.org/
+
+      - name: Verify npm publishing access
+        run: npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install dependencies
         run: npm ci
@@ -48,9 +60,9 @@ jobs:
       # sets @authyon/auth and @authyon/server to 1.2.3 in lockstep.
       - name: Set package versions from the release tag
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
           if ! node -e "const version = process.argv[1]; if (!require('semver').valid(version)) process.exit(1)" "$VERSION"; then
-            echo "Invalid semantic version in release tag: ${GITHUB_REF_NAME}" >&2
+            echo "Invalid semantic version in release tag: ${RELEASE_TAG}" >&2
             exit 1
           fi
 
@@ -76,21 +88,38 @@ jobs:
       # package.json (this bit us once: @authyon/auth 0.1.0–0.1.2 on npm
       # are the entire repo, not the built SDK — see ARCHITECTURE.md).
       #
-      # No token, no .npmrc — npm 11.5.1+ detects the GitHub Actions OIDC
-      # context automatically and exchanges it for a short-lived publish
-      # credential, as long as each package has this repo + this workflow
-      # filename registered as a Trusted Publisher on npmjs.com.
+      # The existing repository token is used until both packages have this
+      # repository and workflow registered as a Trusted Publisher on npm.
+      # Each package is checked independently so a failed run can be resumed
+      # without trying to overwrite an immutable version that already exists.
       - name: Publish @authyon/auth
-        run: npm run publish:auth -- --tag "$DIST_TAG"
+        run: |
+          if npm view "@authyon/auth@${VERSION}" version >/dev/null 2>&1; then
+            echo "@authyon/auth@${VERSION} is already published; skipping."
+          else
+            npm run publish:auth -- --tag "$DIST_TAG"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish @authyon/server
-        run: npm run publish:server -- --tag "$DIST_TAG"
+        run: |
+          if npm view "@authyon/server@${VERSION}" version >/dev/null 2>&1; then
+            echo "@authyon/server@${VERSION} is already published; skipping."
+          else
+            npm run publish:server -- --tag "$DIST_TAG"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Reflects the published version back in package.json. Pushed as a
       # plain (non-force) fast-forward onto main — if main moved since the
       # tag was cut, this fails loudly instead of overwriting anything.
       - name: Commit version bump back to main
         run: |
+          git fetch origin main
+          git switch --force-create release-version-bump origin/main
+          npm version "$VERSION" --workspaces --no-git-tag-version --allow-same-version
           git config user.name "github-actions"
           git config user.email "ci@github.com"
           git add packages/*/package.json package-lock.json
