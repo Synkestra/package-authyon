@@ -2,6 +2,18 @@
 
 Como o monorepo é organizado e por quê — para quem for mexer no código, não só usá-lo.
 
+## Sessão BFF opcional
+
+`@authyon/server/bff` adiciona uma alternativa ao armazenamento de tokens no
+browser. O módulo concentra o ciclo de sessão em `packages/server/src/bff/`:
+handlers HTTP, política de sessão, adapter do provedor e armazenamento com CAS.
+Reutiliza o transporte HTTP compartilhado e o validador server-side. Redis cifra
+os tokens; o browser recebe somente um identificador HttpOnly. A integração é
+explícita e não muda o comportamento dos clientes da tabela abaixo.
+
+Veja [contrato e integração](docs/bff.md), [plano](docs/bff-session-plan.md) e
+[validação](docs/bff-validation.md).
+
 ## A divisão central: quem pode segurar qual chave
 
 Tudo neste repo gira em torno de uma pergunta: **essa operação é segura de rodar num navegador que qualquer pessoa controla?**
@@ -19,22 +31,33 @@ Essa é a razão de existirem dois pacotes em vez de um: **não é uma escolha d
 packages/
 ├── auth/      pk_...                        → login, 2FA, passkeys, SSO, sessão, organização (troca), reset de senha
 └── server/    pk_... + OAuth client creds   → verificação de token, administração de ambiente/tenant
+
+internal/
+└── core/      transporte e erros compartilhados, incorporados aos dois bundles
 ```
 
 ## `@authyon/auth` — visão interna
 
 ```
 src/
-├── client.ts   AuthyonClient — toda a lógica de rede, sessão e refresh
-├── types.ts    tipos públicos (Session, User, Organization, LoginResult...)
-├── errors.ts   AuthyonError (problem+json)
-├── storage.ts  TokenStorage — localStorage por padrão, memória como fallback
-└── index.ts    superfície pública exportada
+├── client/
+│   ├── authyonClient.ts         orquestra autenticação, sessão e namespaces
+│   └── authyonClientBuilder.ts  configuração progressiva do client
+├── contracts/
+│   └── auth.ts           tipos públicos do pacote
+├── errors/
+│   └── index.ts          superfície pública de erros
+├── session/
+│   ├── sessionController.ts  validação, refresh e estado reativo
+│   └── storage.ts            adapters de armazenamento da sessão
+├── react/
+│   └── index.tsx             provider, hooks e guards para Next.js/React
+└── index.ts              superfície pública exportada
 ```
 
-**Sessão e refresh** (`client.ts`): `getAccessToken()` é o ponto de entrada de qualquer chamada autenticada. Ele checa `expiresAt` contra um _skew_ de 30s e, se necessário, chama `refresh()` — que é **single-flight**: chamadas concorrentes durante um refresh compartilham a mesma promise, porque o refresh token da API é single-use/rotacionado e duas chamadas simultâneas queimariam o token uma da outra.
+**Sessão e refresh** (`client/authyonClient.ts`): `getAccessToken()` é o ponto de entrada de qualquer chamada autenticada. Ele checa `expiresAt` contra um _skew_ de 30s e, se necessário, chama `refresh()` — que é **single-flight**: chamadas concorrentes durante um refresh compartilham a mesma promise, porque o refresh token da API é single-use/rotacionado e duas chamadas simultâneas queimariam o token uma da outra.
 
-**Normalização tenant → organization** (`normalizeUser` em `client.ts`): a API fala `tenant` no protocolo (`tenantSlug`, `GET /auth/tenants`, `POST /auth/switch-tenant`); o SDK expõe `organization` para quem usa a lib. Toda resposta que carrega um `user` (login, refresh, switch) passa por `normalizeUser` antes de entrar na sessão — inclusive dentro de `refresh()`, que precisa reaproveitar o `user` já normalizado da sessão anterior.
+**Normalização tenant → organization** (`normalizeUser` em `client/authyonClient.ts`): a API fala `tenant` no protocolo (`tenantSlug`, `GET /auth/tenants`, `POST /auth/switch-tenant`); o SDK expõe `organization` para quem usa a lib. Toda resposta que carrega um `user` (login, refresh, switch) passa por `normalizeUser` antes de entrar na sessão — inclusive dentro de `refresh()`, que precisa reaproveitar o `user` já normalizado da sessão anterior.
 
 **Namespaces** (`user`, `organization`, `twoFactor`, `webauthn`, `sso`): métodos que giram em torno de um recurso ficam agrupados; sessão/auth de alto nível (`login`, `logout`, `refresh`, `verifyTwoFactor`, `introspect`, `validate`) ficam soltos no client, por serem operações do client em si, não de um sub-recurso.
 
@@ -48,10 +71,19 @@ src/
 
 ```
 src/
-├── client.ts   AuthyonServerClient + TenantScopedClient — verificação de token e administração
-├── types.ts    tipos (Organization, User, Member, Role, Permission, TokenResult...)
-├── errors.ts   AuthyonError (cópia da mesma classe do auth)
-└── index.ts    superfície pública exportada
+├── client/
+│   ├── authyonServerClient.ts         verificação de token e administração
+│   └── authyonServerClientBuilder.ts  configuração progressiva e credenciais
+├── contracts/
+│   └── server.ts               tipos públicos do pacote
+├── errors/
+│   └── index.ts                superfície pública de erros
+├── integrations/
+│   └── authorization.ts        Web Request, Next.js e middleware Express
+├── security/
+│   └── jwksTokenVerifier.ts     assinatura JWT, claims e cache seguro de JWKS
+├── browser.ts                  bloqueio explícito no ambiente browser
+└── index.ts                    superfície pública exportada
 ```
 
 A API do Authyon distingue dois "planos" de máquina, cada um com seu próprio par OAuth client-credentials mintado no console:
@@ -63,20 +95,46 @@ A API do Authyon distingue dois "planos" de máquina, cada um com seu próprio p
 
 O header `X-Authyon-Environment` (a `envKey`) é enviado em **toda** chamada, inclusive nas de administração — ele seleciona o ambiente (Test/Live); quem autoriza a ação é sempre o bearer token.
 
-A classe `AuthyonError` existe duplicada nos dois pacotes (não extraída para um terceiro pacote `core`) — são ~25 linhas, e um pacote a mais só para isso seria mais complexidade do que o problema justifica para um monorepo de dois pacotes.
+## Componente compartilhado
+
+`internal/core/` contém transporte, `JsonHttpClient`, `HttpAdapter`, `FetchHttpAdapter`, `AuthyonError`, query strings, DTOs comuns e `ExpiringTokenProvider`, reutilizados por `@authyon/auth` e `@authyon/server`. O núcleo centraliza validação segura de URL, timeout, serialização JSON, normalização de erros, paginação e cache single-flight de tokens de máquina. Ele é incorporado aos dois bundles pelo `tsup`: não é workspace, não é um terceiro pacote público e não cria dependência adicional para o consumidor. O contrato de adapter é reexportado pelos dois pacotes públicos, permitindo trocar a implementação HTTP sem acoplar os clients a Axios, Undici ou ferramentas de observabilidade.
+
+```
+internal/core/
+├── authorization/
+│   └── ability.ts                regras locais baseadas nas permissões Authyon
+├── auth/
+│   └── expiringTokenProvider.ts  cache e renovação single-flight de token
+├── config/
+│   └── defaults.ts               valores padrão compartilhados
+├── contracts/
+│   └── common.ts                 contratos realmente comuns aos dois pacotes
+├── errors/
+│   └── authyonError.ts           erro público normalizado e interpretação
+└── http/
+    ├── httpAdapter.ts            porta HTTP e implementação baseada em fetch
+    ├── clientIp.ts               validação e propagação segura do IP real
+    ├── jsonHttpClient.ts         protocolo JSON, headers e erros da API
+    ├── query.ts                  serialização de query strings
+    └── transport.ts              URL segura, timeout e execução de requests
+```
+
+As dependências apontam para dentro: os clients públicos consomem o núcleo, enquanto o núcleo não conhece nenhum pacote. `index.ts` existe somente nas fronteiras públicas; módulos internos usam imports explícitos para tornar dependências e ciclos visíveis. Novos arquivos devem ser colocados pelo papel que exercem, não apenas por serem “compartilhados”.
+
+Regras de sessão do navegador (storage, refresh rotacionado, eventos e retry em 401) permanecem em `@authyon/auth`. Credenciais administrativas, namespaces de ambiente e tenant permanecem em `@authyon/server`. Modelos apenas nominalmente parecidos (`User`, `Organization`, `Role`, `ValidateResult`) não são unificados, pois representam contratos distintos.
 
 ## Por que os exemplos estão separados por pacote
 
-`packages/auth/examples/` roda só com publishable key; `packages/server/examples/` só roda com client-credentials/backend. Separá-los por pacote (em vez de uma pasta `examples/` compartilhada, como era antes da migração para monorepo) torna essa fronteira física, não só documental — abrir `packages/server/examples/organization-membership.ts` já deixa claro que aquele código nunca deveria estar num bundle de frontend.
+`packages/auth/examples/` roda só com publishable key; `packages/server/examples/` só roda com client-credentials/backend. Separá-los por pacote (em vez de uma pasta `examples/` compartilhada, como era antes da migração para monorepo) torna essa fronteira física, não só documental — abrir `packages/server/examples/organizationMembership.ts` já deixa claro que aquele código nunca deveria estar num bundle de frontend.
 
 ## Build, tipos e docs
 
-- Cada pacote builda para `dist/` via `tsup` (ESM + CJS + `.d.ts`), a partir de um único entry point `src/index.ts`.
+- Cada pacote builda para `dist/` via `tsup` (ESM + CJS + `.d.ts`), a partir de um único entrypoint `src/index.ts`. Não há barrels concorrentes na raiz do pacote.
 - `tsconfig.base.json` na raiz centraliza as opções de compilador comuns; cada pacote estende e ajusta só `lib`/`outDir`. Ambos excluem `examples/` explicitamente do typecheck e do build — os exemplos são verificados à parte (`npx tsc` apontando pra eles diretamente), não fazem parte do pacote publicado (`files: ["dist"]` no `package.json` de cada um já garante isso; o `exclude` no `tsconfig.json` é redundância intencional para deixar isso explícito, não implícito via um `include` estreito).
-- `npm run docs` (raiz) gera referência de API combinada dos dois pacotes com TypeDoc em `docs/` (gitignored — é saída gerada, igual a `dist/`), a partir dos comentários JSDoc já presentes no código.
+- `npm run docs` gera a referência combinada com TypeDoc em `docs/`. A saída HTML permanece ignorada, mas `docs/README.md` e `docs/examples/` são versionados e preservados pela geração para manter guias de uso junto de cada exemplo.
 
 ## CI/CD
 
-Ver [`.github/workflows/npm-publish.yaml`](./.github/workflows/npm-publish.yaml) — dispara na criação de uma GitHub Release, versiona os dois pacotes em lockstep a partir da tag, roda typecheck/lint/format/build como gate, publica no npm público e reflete a versão de volta em `package.json` no `main`.
+Ver [`.github/workflows/npm-publish.yaml`](./.github/workflows/npm-publish.yaml) — dispara na criação de uma GitHub Release, versiona os dois pacotes em lockstep a partir da tag, roda typecheck/lint/format/test/build e inspeciona os tarballs como gates, publica no npm público com provenance e reflete a versão de volta em `package.json` no `main`.
 
 O publish é feito **um pacote por vez**, por nome (`npm run publish:auth` / `npm run publish:server`, definidos no `package.json` raiz), nunca com um `npm publish --workspaces` genérico nem um `npm publish` solto na raiz. Motivo: um `npm publish` na raiz do monorepo publica o repo inteiro sob o nome que estiver em `package.json` da raiz — foi exatamente o que aconteceu com `@authyon/auth` 0.1.0–0.1.2 no npm, publicados por engano a partir da raiz enquanto seu `package.json` estava (incorretamente) com `"name": "@authyon/auth"`; essas três versões contêm o monorepo inteiro, sem `dist/`, e nunca podem ser corrigidas — só superadas por uma versão nova. A raiz agora é `"name": "authyon"` / `"private": true`, então um `npm publish` acidental ali falha alto (`EPRIVATE`) em vez de publicar silenciosamente o repo errado.

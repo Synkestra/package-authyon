@@ -38,16 +38,35 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-      - name: Build
-        run: npm run build
+      - name: Test and build
+        run: npm test
+
+      - name: Verify published package contents
+        run: npm run pack:check
 
       # The release's tag IS the version — e.g. tag "v1.2.3" (or "1.2.3")
       # sets @authyon/auth and @authyon/server to 1.2.3 in lockstep.
       - name: Set package versions from the release tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          if ! node -e "const version = process.argv[1]; if (!require('semver').valid(version)) process.exit(1)" "$VERSION"; then
+            echo "Invalid semantic version in release tag: ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+
+          if [[ "$VERSION" == *-* ]]; then
+            DIST_TAG="${VERSION#*-}"
+            DIST_TAG="${DIST_TAG%%.*}"
+          else
+            DIST_TAG="latest"
+          fi
+
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "DIST_TAG=$DIST_TAG" >> "$GITHUB_ENV"
           npm version "$VERSION" --workspaces --no-git-tag-version --allow-same-version
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
 
       # Published one workspace at a time, by name, rather than a blanket
       # `--workspaces` — that command stops at the first failure (e.g. one
@@ -62,10 +81,10 @@ jobs:
       # credential, as long as each package has this repo + this workflow
       # filename registered as a Trusted Publisher on npmjs.com.
       - name: Publish @authyon/auth
-        run: npm run publish:auth
+        run: npm run publish:auth -- --tag "$DIST_TAG"
 
       - name: Publish @authyon/server
-        run: npm run publish:server
+        run: npm run publish:server -- --tag "$DIST_TAG"
 
       # Reflects the published version back in package.json. Pushed as a
       # plain (non-force) fast-forward onto main — if main moved since the
