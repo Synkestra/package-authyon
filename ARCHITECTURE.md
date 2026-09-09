@@ -2,6 +2,18 @@
 
 Como o monorepo é organizado e por quê — para quem for mexer no código, não só usá-lo.
 
+## Sessão BFF opcional
+
+`@authyon/server/bff` adiciona uma alternativa ao armazenamento de tokens no
+browser. O módulo concentra o ciclo de sessão em `packages/server/src/bff/`:
+handlers HTTP, política de sessão, adapter do provedor e armazenamento com CAS.
+Reutiliza o transporte HTTP compartilhado e o validador server-side. Redis cifra
+os tokens; o browser recebe somente um identificador HttpOnly. A integração é
+explícita e não muda o comportamento dos clientes da tabela abaixo.
+
+Veja [contrato e integração](docs/bff.md), [plano](docs/bff-session-plan.md) e
+[validação](docs/bff-validation.md).
+
 ## A divisão central: quem pode segurar qual chave
 
 Tudo neste repo gira em torno de uma pergunta: **essa operação é segura de rodar num navegador que qualquer pessoa controla?**

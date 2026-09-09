@@ -37,6 +37,17 @@ O client também aceita `httpLogger: { enabled, logger? }`. A configuração é 
 
 `AuthyonError`, `ErrorCodes` e `error.interpret()` também são exportados por este pacote. Use `category`, `action`, `retryable`, `retryAfter` e `requestId` para implementar middleware e observabilidade sem comparar mensagens humanas.
 
+## Sessão web no BFF (código ainda não publicado)
+
+O novo entrypoint `@authyon/server/bff` oferece login, 2FA, sessão HttpOnly,
+renovação sob demanda, logout e troca de organização. Os tokens ficam no servidor,
+com adaptador Redis cifrado e compare-and-swap para concorrência entre instâncias.
+Reutiliza os endpoints existentes e o cliente de validação server-side.
+
+Veja [contrato e integração](../../docs/bff.md) e [análise/plano](../../docs/bff-session-plan.md).
+O entrypoint padrão e `@authyon/server/next` mantêm seu comportamento anterior;
+a adoção do transporte BFF pelo consumidor é explícita.
+
 ## Validação local com JWKS
 
 Para APIs de alto volume, crie uma vez um verificador com discovery automático:

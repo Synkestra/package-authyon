@@ -5,6 +5,9 @@ docs/*
 !docs/gettingStarted.md
 !docs/nextjs.md
 !docs/security.md
+!docs/bff.md
+!docs/bff-session-plan.md
+!docs/bff-validation.md
 !docs/releaseBeta.md
 !docs/examples/
 !docs/examples/**

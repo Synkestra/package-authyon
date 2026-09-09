@@ -4,6 +4,15 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+- Entrypoint `@authyon/server/bff` com handlers Fetch para login, 2FA, leitura da sessão,
+  logout e troca de organização; cookies HttpOnly, origem estrita e proteção CSRF.
+- Sessões com prazo absoluto/inatividade, renovação sob demanda e CAS para impedir
+  refresh concorrente, gravação tardia e restauração de sessão após logout.
+- Adaptadores de sessão em memória (desenvolvimento) e Redis com cifra A256GCM,
+  TTL e associação criptográfica à chave da sessão. Sem nova dependência de runtime.
+- Guia de integração e testes de segurança/concorrência. O transporte é opt-in;
+  consumidores existentes continuam usando seus contratos atuais.
+
 ## 0.2.0-beta.4
 
 ### Adicionado
