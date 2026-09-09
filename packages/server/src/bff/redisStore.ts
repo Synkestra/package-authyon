@@ -26,6 +26,37 @@ end
 return 1
 `;
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isOrganization(value: unknown): boolean {
+  return (
+    value === null ||
+    (isObject(value) && typeof value.id === "string" && typeof value.slug === "string")
+  );
+}
+
+function isSessionRecord(value: unknown): value is BffSessionRecord {
+  if (!isObject(value) || !isObject(value.tokens) || !isObject(value.user)) return false;
+  return (
+    typeof value.revision === "string" &&
+    typeof value.tokens.accessToken === "string" &&
+    typeof value.tokens.refreshToken === "string" &&
+    isFiniteNumber(value.tokens.expiresAt) &&
+    typeof value.user.id === "string" &&
+    typeof value.user.email === "string" &&
+    isOrganization(value.user.organization) &&
+    isFiniteNumber(value.expiresAt) &&
+    isFiniteNumber(value.idleExpiresAt) &&
+    (value.busyUntil === null || isFiniteNumber(value.busyUntil))
+  );
+}
+
 /** node-redis-compatible adapter. Lua fences stale writers using the record revision. */
 export function createRedisBffSessionStore(options: RedisBffSessionStoreOptions): BffSessionStore {
   if (options.encryptionKey.byteLength !== 32) {
@@ -45,8 +76,10 @@ export function createRedisBffSessionStore(options: RedisBffSessionStoreOptions)
           contentEncryptionAlgorithms: ["A256GCM"],
           audience: prefix + key,
         });
-        const record = payload.session as BffSessionRecord;
-        if (!record || record.revision !== envelope.revision) throw new Error("revision mismatch");
+        const record = payload.session;
+        if (!isSessionRecord(record) || record.revision !== envelope.revision) {
+          throw new Error("invalid session record");
+        }
         return record;
       } catch {
         throw new BffSessionError("session.storage_invalid", 503);

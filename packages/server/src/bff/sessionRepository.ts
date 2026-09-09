@@ -32,20 +32,7 @@ export class BffSessionRepository {
     const key = sessionKey(id, this.origin);
     const deadline = Date.now() + CONTENTION_TIMEOUT_MS;
     while (Date.now() < deadline) {
-      const record = await this.store.read(key);
-      if (!record) throw new BffSessionError("session.missing", 401, true);
-      if (Math.min(record.expiresAt, record.idleExpiresAt) <= Date.now()) {
-        await this.store.compareAndSwap(key, record.revision, null);
-        throw new BffSessionError("session.expired", 401, true);
-      }
-      if (record.busyUntil !== null) {
-        if (record.busyUntil <= Date.now()) {
-          await this.store.compareAndSwap(key, record.revision, null);
-          throw new BffSessionError("session.interrupted", 503, true);
-        }
-        await new Promise((resolve) => setTimeout(resolve, CONTENTION_POLL_MS));
-        continue;
-      }
+      const record = await this.readAvailable(key, deadline);
       const reserved = {
         ...record,
         revision: newSessionSecret(),
@@ -55,6 +42,25 @@ export class BffSessionRepository {
         return { key, record: reserved };
     }
     throw new BffSessionError("session.busy", 503);
+  }
+
+  async inspect(id: string): Promise<BffSessionLease> {
+    const key = sessionKey(id, this.origin);
+    const record = await this.readAvailable(key, Date.now() + CONTENTION_TIMEOUT_MS);
+    return { key, record };
+  }
+
+  async touch(lease: BffSessionLease, idleExpiresAt: number): Promise<BffSessionRecord | null> {
+    const next = {
+      ...lease.record,
+      revision: newSessionSecret(),
+      idleExpiresAt,
+    };
+    return (await this.store.compareAndSwap(lease.key, lease.record.revision, next)) ? next : null;
+  }
+
+  async removeIfCurrent(lease: BffSessionLease): Promise<boolean> {
+    return this.store.compareAndSwap(lease.key, lease.record.revision, null);
   }
 
   async release(lease: BffSessionLease): Promise<void> {
@@ -69,8 +75,30 @@ export class BffSessionRepository {
   }
 
   async remove(lease: BffSessionLease): Promise<void> {
-    if (!(await this.store.compareAndSwap(lease.key, lease.record.revision, null))) {
+    if (!(await this.removeIfCurrent(lease))) {
       throw new BffSessionError("session.changed", 401, true);
     }
+  }
+
+  private async readAvailable(key: string, deadline: number): Promise<BffSessionRecord> {
+    while (Date.now() < deadline) {
+      const record = await this.store.read(key);
+      if (!record) throw new BffSessionError("session.missing", 401, true);
+      if (Math.min(record.expiresAt, record.idleExpiresAt) <= Date.now()) {
+        if (await this.store.compareAndSwap(key, record.revision, null)) {
+          throw new BffSessionError("session.expired", 401, true);
+        }
+        continue;
+      }
+      if (record.busyUntil === null) return record;
+      if (record.busyUntil <= Date.now()) {
+        if (await this.store.compareAndSwap(key, record.revision, null)) {
+          throw new BffSessionError("session.interrupted", 503, true);
+        }
+        continue;
+      }
+      await new Promise((resolve) => setTimeout(resolve, CONTENTION_POLL_MS));
+    }
+    throw new BffSessionError("session.busy", 503);
   }
 }

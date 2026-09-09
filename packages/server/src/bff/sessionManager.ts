@@ -11,6 +11,7 @@ import { BffSessionRepository, newSessionSecret, type BffSessionLease } from "./
 const DEFAULT_ABSOLUTE_TIMEOUT_MS = 8 * 60 * 60 * 1000;
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_REFRESH_AHEAD_MS = 30_000;
+const MAX_SESSION_CHANGE_RETRIES = 2;
 
 function positiveDuration(value: number): number {
   if (!Number.isSafeInteger(value) || value <= 0)
@@ -64,12 +65,7 @@ export class BffSessionManager {
   }
 
   async read(id: string): Promise<BffSessionRecord> {
-    return this.update(id, async (lease) => {
-      const refreshed = await this.refreshIfNeeded(lease);
-      if (!refreshed && !(await this.options.provider.validate(lease.record.tokens.accessToken))) {
-        throw new BffSessionError("session.revoked", 401, true);
-      }
-    });
+    return this.readCurrent(id, 0);
   }
 
   async switchOrganization(id: string, slug: string): Promise<BffSessionRecord> {
@@ -117,8 +113,47 @@ export class BffSessionManager {
     return lease.record;
   }
 
+  private async readCurrent(id: string, changeRetries: number): Promise<BffSessionRecord> {
+    const lease = await this.repository.inspect(id);
+    if (this.needsRefresh(lease.record)) {
+      return this.update(id, async (reserved) => {
+        const refreshed = await this.refreshIfNeeded(reserved);
+        if (
+          !refreshed &&
+          !(await this.options.provider.validate(reserved.record.tokens.accessToken))
+        ) {
+          throw new BffSessionError("session.revoked", 401, true);
+        }
+      });
+    }
+
+    let valid: boolean;
+    try {
+      valid = await this.options.provider.validate(lease.record.tokens.accessToken);
+    } catch (error) {
+      if (!rejectedCredential(error)) throw error;
+      valid = false;
+    }
+    if (!valid) {
+      if (await this.repository.removeIfCurrent(lease)) {
+        throw new BffSessionError("session.revoked", 401, true);
+      }
+      if (changeRetries >= MAX_SESSION_CHANGE_RETRIES) {
+        throw new BffSessionError("session.changed", 503);
+      }
+      return this.readCurrent(id, changeRetries + 1);
+    }
+
+    const idleExpiresAt = Math.min(lease.record.expiresAt, Date.now() + this.idleTimeout);
+    return (await this.repository.touch(lease, idleExpiresAt)) ?? lease.record;
+  }
+
+  private needsRefresh(record: BffSessionRecord): boolean {
+    return record.tokens.expiresAt - this.refreshAhead <= Date.now();
+  }
+
   private async refreshIfNeeded(lease: BffSessionLease): Promise<boolean> {
-    if (lease.record.tokens.expiresAt - this.refreshAhead > Date.now()) return false;
+    if (!this.needsRefresh(lease.record)) return false;
     await this.rotate(lease, {
       issue: () => this.options.provider.refresh(lease.record.tokens.refreshToken),
       accepts: (user) =>

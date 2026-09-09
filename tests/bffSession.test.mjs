@@ -121,6 +121,32 @@ test("parallel BFF instances rotate the single-use token exactly once", async (t
   assert.equal(f.calls.refresh, 1);
 });
 
+test("ordinary parallel reads do not serialize provider validation", async () => {
+  const f = fixture();
+  const { cookie } = await f.login();
+  let activeValidations = 0;
+  let maximumConcurrentValidations = 0;
+  f.provider.validate = async () => {
+    activeValidations++;
+    maximumConcurrentValidations = Math.max(maximumConcurrentValidations, activeValidations);
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 25));
+    activeValidations--;
+    return true;
+  };
+
+  const responses = await Promise.all([
+    f.bff.session(request("GET", cookie)),
+    f.bff.session(request("GET", cookie)),
+    f.bff.session(request("GET", cookie)),
+  ]);
+
+  assert.deepEqual(
+    responses.map((response) => response.status),
+    [200, 200, 200],
+  );
+  assert.equal(maximumConcurrentValidations, 3);
+});
+
 test("absolute lifetime cannot be extended by activity", async (t) => {
   let now = Date.now();
   t.mock.method(Date, "now", () => now);

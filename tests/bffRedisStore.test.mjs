@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { EncryptJWT } from "jose";
 import { createRedisBffSessionStore } from "../packages/server/dist/bff.js";
 
 // Models Redis CAS/TTL semantics for adapter tests; does not execute the Lua script.
@@ -74,6 +75,22 @@ test("Redis envelope tampering and wrong encryption keys fail closed", async () 
   const entry = client.data.get("authyon:bff:session");
   const envelope = JSON.parse(entry.value);
   entry.value = JSON.stringify({ ...envelope, revision: "forged" });
+  await assert.rejects(store.read("session"), { code: "session.storage_invalid" });
+});
+
+test("Redis rejects an encrypted payload with an invalid session structure", async () => {
+  const client = redisDouble();
+  const encryptionKey = new Uint8Array(32).fill(7);
+  const store = createRedisBffSessionStore({ client, encryptionKey });
+  const ciphertext = await new EncryptJWT({ session: { revision: "one" } })
+    .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
+    .setAudience("authyon:bff:session")
+    .encrypt(encryptionKey);
+  client.data.set("authyon:bff:session", {
+    value: JSON.stringify({ revision: "one", ciphertext }),
+    expiresAt: Date.now() + 60_000,
+  });
+
   await assert.rejects(store.read("session"), { code: "session.storage_invalid" });
 });
 
