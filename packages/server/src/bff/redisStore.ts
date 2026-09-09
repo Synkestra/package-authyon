@@ -61,7 +61,6 @@ export function createRedisBffSessionStore(options: RedisBffSessionStoreOptions)
         const ciphertext = await new EncryptJWT({ session: next })
           .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
           .setAudience(prefix + key)
-          .setExpirationTime(Math.ceil(expiresAt / 1000))
           .encrypt(encryptionKey);
         serialized = JSON.stringify({ revision: next.revision, ciphertext });
       }

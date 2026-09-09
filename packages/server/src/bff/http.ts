@@ -2,8 +2,8 @@ import { AuthyonError } from "../errors";
 import {
   BffSessionError,
   type BffSessionOptions,
-  type LoginInput,
-  type VerifyTwoFactorInput,
+  type BffLoginInput,
+  type BffVerifyTwoFactorInput,
 } from "./contracts";
 
 const MAX_BODY_BYTES = 16_384;
@@ -143,7 +143,7 @@ export function inputString(body: Record<string, unknown>, name: string): string
   return value;
 }
 
-export function loginInput(body: Record<string, unknown>): LoginInput {
+export function loginInput(body: Record<string, unknown>): BffLoginInput {
   return {
     password: inputString(body, "password"),
     ...(body.email !== undefined
@@ -155,7 +155,7 @@ export function loginInput(body: Record<string, unknown>): LoginInput {
   };
 }
 
-export function twoFactorInput(body: Record<string, unknown>): VerifyTwoFactorInput {
+export function twoFactorInput(body: Record<string, unknown>): BffVerifyTwoFactorInput {
   const method = inputString(body, "method");
   const challengeToken = inputString(body, "challengeToken");
   if (method !== "webauthn") return { challengeToken, method, code: inputString(body, "code") };

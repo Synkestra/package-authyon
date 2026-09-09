@@ -8,9 +8,11 @@ export { BffSessionError } from "./bff/contracts";
 export type {
   BffAuthProvider,
   BffChallenge,
+  BffLoginInput,
   BffSessionOptions,
   BffSessionRecord,
   BffSessionStore,
   BffTokens,
   BffUser,
+  BffVerifyTwoFactorInput,
 } from "./bff/contracts";

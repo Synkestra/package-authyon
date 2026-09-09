@@ -1,6 +1,19 @@
-import type { LoginInput, VerifyTwoFactorInput } from "../../../auth/src/contracts/auth";
+export interface BffLoginInput {
+  email?: string;
+  username?: string;
+  password: string;
+  organizationSlug?: string;
+}
 
-export type { LoginInput, VerifyTwoFactorInput };
+export interface BffVerifyTwoFactorInput {
+  challengeToken: string;
+  method: string;
+  code?: string;
+  webAuthnAssertion?: {
+    ceremonyToken: string;
+    assertionJson: string;
+  };
+}
 
 export interface BffTokens {
   accessToken: string;
@@ -22,8 +35,8 @@ export interface BffChallenge {
 }
 
 export interface BffAuthProvider {
-  login(input: LoginInput): Promise<BffTokens | BffChallenge>;
-  verifyTwoFactor(input: VerifyTwoFactorInput): Promise<BffTokens>;
+  login(input: BffLoginInput): Promise<BffTokens | BffChallenge>;
+  verifyTwoFactor(input: BffVerifyTwoFactorInput): Promise<BffTokens>;
   refresh(refreshToken: string): Promise<BffTokens>;
   logout(refreshToken: string): Promise<void>;
   switchOrganization(accessToken: string, slug: string): Promise<BffTokens>;
