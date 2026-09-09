@@ -21,7 +21,7 @@ e nenhum consumidor foi migrado.
 | Verificação | Resultado |
 | --- | --- |
 | Baseline antes da alteração | 55 testes passaram |
-| Suíte completa após a alteração | 96 testes passaram: 55 existentes e 41 novos |
+| Suíte completa após a alteração | 98 testes passaram: 55 existentes e 43 novos |
 | `npm run typecheck` | passou nos dois pacotes |
 | `npm run lint` | passou |
 | `npm run build` | ESM, CJS e declarações dos dois pacotes gerados |
@@ -35,7 +35,9 @@ e nenhum consumidor foi migrado.
 A execução de cobertura dos 38 primeiros testes novos mediu 93,06% de linhas,
 84,73% de branches e 98,68% de funções no bundle `packages/server/dist/bff.js`.
 Esse número é do bundle e não equivale à cobertura de todo o repositório. Três
-testes adicionais verificam empacotamento/importação.
+testes adicionais verificam empacotamento/importação. Depois dessa medição, dois
+testes de regressão foram adicionados para concorrência sem fila e validação do
+registro descriptografado; a porcentagem histórica não foi recalculada.
 
 `npm run check` interrompe na etapa global de Prettier: há terminações CRLF do
 checkout Windows em arquivos anteriores à mudança. Mesmo aceitando o estilo de

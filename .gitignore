@@ -7,6 +7,7 @@ docs/*
 !docs/security.md
 !docs/bff.md
 !docs/bff-session-plan.md
+!docs/bff-gap-review.md
 !docs/bff-validation.md
 !docs/releaseBeta.md
 !docs/examples/

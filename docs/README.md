@@ -26,6 +26,7 @@ Esta pasta reúne a referência gerada pelo TypeDoc e a documentação prática 
 
 - [Sessão de navegador no BFF](./bff.md)
 - [Análise e plano da sessão BFF](./bff-session-plan.md)
+- [Mapa de gaps da sessão BFF](./bff-gap-review.md)
 - [Exemplo completo de backend](./examples/backend.md)
 - [Verificação de token](./examples/tokenVerification.md)
 - [Validação JWT com JWKS](./examples/jwksVerification.md)
