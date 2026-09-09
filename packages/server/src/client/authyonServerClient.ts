@@ -407,7 +407,11 @@ export class AuthyonServerClient {
           this.request(`/env/tenants/${segment(tenantId)}/credentials`, {
             method: "POST",
             envBearer: true,
-            body: { description: input.description, ...lifetimeBody(input), ...permissionsBody(input) },
+            body: {
+              description: input.description,
+              ...lifetimeBody(input),
+              ...permissionsBody(input),
+            },
           }),
         /** Returns a new secret once while keeping the same client id. */
         rotate: (tenantId: string, credentialId: string): Promise<TenantCredentialIssued> =>
