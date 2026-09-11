@@ -36,6 +36,7 @@ import type {
   CreateTenantCredentialInput,
   TenantCredentialIssued,
   TenantCredentialSummary,
+  TenantClientValidationResult,
   CreateOrganizationInput,
   CreatePermissionInput,
   CreateUserInput,
@@ -686,6 +687,11 @@ export class TenantScopedClient {
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     return this.server._requestAsTenant(await this.getAccessToken(), path, options);
+  }
+
+  /** POST /tenant/auth/validate — validates this tenant client's current bearer token. */
+  validate(): Promise<TenantClientValidationResult> {
+    return this.request("/tenant/auth/validate", { method: "POST" });
   }
 
   readonly members = {

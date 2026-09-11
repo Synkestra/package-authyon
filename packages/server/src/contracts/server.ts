@@ -252,6 +252,18 @@ export interface TokenResult {
   scope?: string;
 }
 
+/** POST /tenant/auth/validate — validates the current tenant-client bearer. */
+export interface TenantClientValidationResult {
+  valid: boolean;
+  reason?: string | null;
+  tenantId: string;
+  workspaceId: string;
+  environmentId: string;
+  credentialId: string;
+  clientId: string;
+  permissions: string[];
+}
+
 export interface JsonWebKeySet {
   keys: Record<string, unknown>[];
 }

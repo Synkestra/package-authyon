@@ -67,3 +67,48 @@ test("preserves authorization failures without retrying credential issuance", as
   );
   assert.equal(requests.length, 2);
 });
+
+test("validates the current tenant client bearer", async () => {
+  const requests = [];
+  const validation = {
+    valid: true,
+    reason: null,
+    tenantId: "tenant-1",
+    workspaceId: "workspace-1",
+    environmentId: "environment-1",
+    credentialId: "credential-1",
+    clientId: "tc_test",
+    permissions: ["authyon:users:read"],
+  };
+  const client = createClient({
+    envKey: "pk_test",
+    httpAdapter: {
+      async request(request) {
+        requests.push(request);
+        const body = request.url.endsWith("/tenant/oauth/token")
+          ? { access_token: "tenant-token", token_type: "Bearer", expires_in: 300 }
+          : validation;
+        return new globalThis.Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    },
+  });
+
+  const tenant = client.tenant({ clientId: "tc_test", clientSecret: "tenant-secret" });
+  const result = await tenant.validate();
+
+  assert.deepEqual(result, validation);
+  assert.equal(requests[0].url, "https://api.authyon.com/tenant/oauth/token");
+  assert.equal(requests[1].url, "https://api.authyon.com/tenant/auth/validate");
+  assert.equal(requests[1].method, "POST");
+  assert.equal(
+    new globalThis.Headers(requests[1].headers).get("authorization"),
+    "Bearer tenant-token",
+  );
+  assert.equal(new globalThis.Headers(requests[1].headers).get("x-authyon-environment"), "pk_test");
+
+  await tenant.validate();
+  assert.equal(requests.filter((r) => r.url.endsWith("/tenant/oauth/token")).length, 1);
+});
