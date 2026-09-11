@@ -292,6 +292,12 @@ export interface AuthyonServerClientOptions {
    */
   clientId?: string;
   clientSecret?: string;
+  /**
+   * Originating end-user IP to forward on every API call as `X-Forwarded-For`.
+   * Only set this from infrastructure you trust; the SDK rejects comma-separated
+   * or whitespace-containing values to avoid forwarded-header injection.
+   */
+  clientIp?: string;
   /** API origin. Defaults to `https://api.authyon.com`. */
   baseUrl?: string;
   /** Allow an HTTP `baseUrl`. Intended only for explicitly trusted local development. */

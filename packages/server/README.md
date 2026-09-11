@@ -198,6 +198,19 @@ await acme.roles.create({ name: "viewer", permissions: ["reports:read"] });
 vem do backend depois da checagem de revogação, rotação de secret e tenant
 desabilitado; não confie só na claim `scope` quando precisar do estado atual.
 
+Em middleware, quando você já recebeu o bearer tenant-client na requisição, não
+use `clientId`/`clientSecret`; valide o token diretamente:
+
+```ts
+const validation = await authyon.tenantAuth.validate(tenantBearerToken, {
+  clientIp: "203.0.113.10",
+});
+
+if (!validation.valid) {
+  // responda 401
+}
+```
+
 ## Descoberta
 
 ```ts

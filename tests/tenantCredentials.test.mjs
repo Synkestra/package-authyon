@@ -112,3 +112,42 @@ test("validates the current tenant client bearer", async () => {
   await tenant.validate();
   assert.equal(requests.filter((r) => r.url.endsWith("/tenant/oauth/token")).length, 1);
 });
+
+test("validates an existing tenant client bearer without client credentials", async () => {
+  const requests = [];
+  const validation = {
+    valid: true,
+    reason: null,
+    tenantId: "tenant-1",
+    workspaceId: "workspace-1",
+    environmentId: "environment-1",
+    credentialId: "credential-1",
+    clientId: "tc_test",
+    permissions: ["authyon:users:read"],
+  };
+  const client = createClient({
+    envKey: "pk_test",
+    httpAdapter: {
+      async request(request) {
+        requests.push(request);
+        return new globalThis.Response(JSON.stringify(validation), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    },
+  });
+
+  const result = await client.tenantAuth.validate("tenant-token", {
+    clientIp: "203.0.113.10",
+  });
+
+  assert.deepEqual(result, validation);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "https://api.authyon.com/tenant/auth/validate");
+  assert.equal(requests[0].method, "POST");
+  const headers = new globalThis.Headers(requests[0].headers);
+  assert.equal(headers.get("authorization"), "Bearer tenant-token");
+  assert.equal(headers.get("x-authyon-environment"), "pk_test");
+  assert.equal(headers.get("x-forwarded-for"), "203.0.113.10");
+});
