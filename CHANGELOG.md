@@ -4,6 +4,12 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+## 0.2.0-beta.5
+
+### Adicionado
+
+- `TenantScopedClient.validate()` no `@authyon/server`, chamando `POST /tenant/auth/validate` para confirmar o bearer tenant-client atual e retornar o escopo vigente da credencial.
+
 ## 0.2.0-beta.4
 
 ### Adicionado
