@@ -42,8 +42,7 @@ export class BffSessionManager {
     this.rememberedSession = this.createSessionLifetime({
       absoluteTimeoutMs:
         options.rememberedSession?.absoluteTimeoutMs ?? DEFAULT_REMEMBERED_ABSOLUTE_TIMEOUT_MS,
-      idleTimeoutMs:
-        options.rememberedSession?.idleTimeoutMs ?? DEFAULT_REMEMBERED_IDLE_TIMEOUT_MS,
+      idleTimeoutMs: options.rememberedSession?.idleTimeoutMs ?? DEFAULT_REMEMBERED_IDLE_TIMEOUT_MS,
     });
     this.refreshAhead = positiveDuration(options.refreshAheadMs ?? DEFAULT_REFRESH_AHEAD_MS);
   }
