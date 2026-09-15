@@ -51,6 +51,9 @@ function isSessionRecord(value: unknown): value is BffSessionRecord {
     typeof value.user.id === "string" &&
     typeof value.user.email === "string" &&
     isOrganization(value.user.organization) &&
+    (value.sessionPersistence === undefined ||
+      value.sessionPersistence === "standard" ||
+      value.sessionPersistence === "remembered") &&
     isFiniteNumber(value.expiresAt) &&
     isFiniteNumber(value.idleExpiresAt) &&
     (value.busyUntil === null || isFiniteNumber(value.busyUntil))

@@ -39,8 +39,9 @@ export function createBffSession(options: BffSessionOptions) {
   async function finishLogin(
     tokens: Parameters<BffSessionManager["create"]>[0],
     organizationSlug?: string,
+    sessionPersistence?: Parameters<BffSessionManager["create"]>[2],
   ) {
-    const { id, record } = await manager.create(tokens, organizationSlug);
+    const { id, record } = await manager.create(tokens, organizationSlug, sessionPersistence);
     return http.response(publicSession(record), { cookie: http.cookie(id, record.expiresAt) });
   }
 
@@ -68,14 +69,13 @@ export function createBffSession(options: BffSessionOptions) {
           methods: result.methods,
         });
       }
-      return finishLogin(result, input.organizationSlug);
+      return finishLogin(result, input.organizationSlug, input.sessionPersistence);
     }),
     verifyTwoFactor: handler("POST", async (request) => {
       await assertSignedOut(request);
-      const tokens = await options.provider.verifyTwoFactor(
-        twoFactorInput(await readBffBody(request)),
-      );
-      return finishLogin(tokens);
+      const input = twoFactorInput(await readBffBody(request));
+      const tokens = await options.provider.verifyTwoFactor(input);
+      return finishLogin(tokens, undefined, input.sessionPersistence);
     }),
     session: handler("GET", async (request) =>
       http.response(publicSession(await manager.read(requiredSessionId(request)))),
