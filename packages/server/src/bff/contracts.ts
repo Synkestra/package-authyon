@@ -3,16 +3,25 @@ export interface BffLoginInput {
   username?: string;
   password: string;
   organizationSlug?: string;
+  sessionPersistence?: BffSessionPersistence;
 }
 
 export interface BffVerifyTwoFactorInput {
   challengeToken: string;
   method: string;
   code?: string;
+  sessionPersistence?: BffSessionPersistence;
   webAuthnAssertion?: {
     ceremonyToken: string;
     assertionJson: string;
   };
+}
+
+export type BffSessionPersistence = "standard" | "remembered";
+
+export interface BffSessionLifetime {
+  absoluteTimeoutMs: number;
+  idleTimeoutMs: number;
 }
 
 export interface BffTokens {
@@ -48,6 +57,8 @@ export interface BffSessionRecord {
   revision: string;
   tokens: BffTokens;
   user: BffUser;
+  /** Missing on records created before persistent sessions; those retain the standard policy. */
+  sessionPersistence?: BffSessionPersistence;
   expiresAt: number;
   idleExpiresAt: number;
   /** A crashed token rotation must invalidate the session, never replay its old token. */
@@ -70,6 +81,8 @@ export interface BffSessionOptions {
   store: BffSessionStore;
   absoluteTimeoutMs?: number;
   idleTimeoutMs?: number;
+  /** Server-controlled limits used only after an explicit remembered login. */
+  rememberedSession?: Partial<BffSessionLifetime>;
   refreshAheadMs?: number;
   /** Only permits HTTP on localhost/loopback. Never enables remote HTTP. */
   allowInsecureLocalhost?: boolean;

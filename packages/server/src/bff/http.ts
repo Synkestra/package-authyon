@@ -3,6 +3,7 @@ import {
   BffSessionError,
   type BffSessionOptions,
   type BffLoginInput,
+  type BffSessionPersistence,
   type BffVerifyTwoFactorInput,
 } from "./contracts";
 
@@ -143,6 +144,13 @@ export function inputString(body: Record<string, unknown>, name: string): string
   return value;
 }
 
+function sessionPersistence(body: Record<string, unknown>): BffSessionPersistence {
+  const value = body.sessionPersistence;
+  if (value === undefined || value === "standard") return "standard";
+  if (value === "remembered") return "remembered";
+  throw new BffSessionError("request.invalid_body", 400);
+}
+
 export function loginInput(body: Record<string, unknown>): BffLoginInput {
   return {
     password: inputString(body, "password"),
@@ -152,13 +160,22 @@ export function loginInput(body: Record<string, unknown>): BffLoginInput {
     ...(body.organizationSlug !== undefined
       ? { organizationSlug: inputString(body, "organizationSlug") }
       : {}),
+    sessionPersistence: sessionPersistence(body),
   };
 }
 
 export function twoFactorInput(body: Record<string, unknown>): BffVerifyTwoFactorInput {
   const method = inputString(body, "method");
   const challengeToken = inputString(body, "challengeToken");
-  if (method !== "webauthn") return { challengeToken, method, code: inputString(body, "code") };
+  const persistence = sessionPersistence(body);
+  if (method !== "webauthn") {
+    return {
+      challengeToken,
+      method,
+      code: inputString(body, "code"),
+      sessionPersistence: persistence,
+    };
+  }
   const assertion = body.webAuthnAssertion;
   if (!assertion || typeof assertion !== "object" || Array.isArray(assertion))
     throw new BffSessionError("request.invalid_body", 400);
@@ -166,6 +183,7 @@ export function twoFactorInput(body: Record<string, unknown>): BffVerifyTwoFacto
   return {
     challengeToken,
     method,
+    sessionPersistence: persistence,
     webAuthnAssertion: {
       ceremonyToken: inputString(fields, "ceremonyToken"),
       assertionJson: inputString(fields, "assertionJson"),

@@ -1,7 +1,9 @@
 import { AuthyonError } from "../errors";
 import {
   BffSessionError,
+  type BffSessionLifetime,
   type BffSessionOptions,
+  type BffSessionPersistence,
   type BffSessionRecord,
   type BffTokens,
   type BffUser,
@@ -10,6 +12,8 @@ import { BffSessionRepository, newSessionSecret, type BffSessionLease } from "./
 
 const DEFAULT_ABSOLUTE_TIMEOUT_MS = 8 * 60 * 60 * 1000;
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const DEFAULT_REMEMBERED_ABSOLUTE_TIMEOUT_MS = 90 * 24 * 60 * 60 * 1000;
+const DEFAULT_REMEMBERED_IDLE_TIMEOUT_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_REFRESH_AHEAD_MS = 30_000;
 const MAX_SESSION_CHANGE_RETRIES = 2;
 
@@ -25,37 +29,43 @@ function rejectedCredential(error: unknown): boolean {
 
 export class BffSessionManager {
   private readonly repository: BffSessionRepository;
-  private readonly absoluteTimeout: number;
-  private readonly idleTimeout: number;
+  private readonly standardSession: BffSessionLifetime;
+  private readonly rememberedSession: BffSessionLifetime;
   private readonly refreshAhead: number;
 
   constructor(private readonly options: BffSessionOptions) {
     this.repository = new BffSessionRepository(options.store, options.origin);
-    this.absoluteTimeout = positiveDuration(
-      options.absoluteTimeoutMs ?? DEFAULT_ABSOLUTE_TIMEOUT_MS,
-    );
-    this.idleTimeout = positiveDuration(options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS);
+    this.standardSession = this.createSessionLifetime({
+      absoluteTimeoutMs: options.absoluteTimeoutMs ?? DEFAULT_ABSOLUTE_TIMEOUT_MS,
+      idleTimeoutMs: options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS,
+    });
+    this.rememberedSession = this.createSessionLifetime({
+      absoluteTimeoutMs:
+        options.rememberedSession?.absoluteTimeoutMs ?? DEFAULT_REMEMBERED_ABSOLUTE_TIMEOUT_MS,
+      idleTimeoutMs: options.rememberedSession?.idleTimeoutMs ?? DEFAULT_REMEMBERED_IDLE_TIMEOUT_MS,
+    });
     this.refreshAhead = positiveDuration(options.refreshAheadMs ?? DEFAULT_REFRESH_AHEAD_MS);
-    if (this.idleTimeout > this.absoluteTimeout)
-      throw new Error("Authyon BFF: idle timeout must not exceed absolute timeout");
   }
 
   async create(
     tokens: BffTokens,
     organizationSlug?: string,
+    sessionPersistence: BffSessionPersistence = "standard",
   ): Promise<{ id: string; record: BffSessionRecord }> {
     try {
       const user = await this.verifiedProfile(tokens);
       if (organizationSlug !== undefined && user.organization?.slug !== organizationSlug) {
         throw new BffSessionError("session.organization_mismatch", 502);
       }
+      const lifetime = this.sessionLifetime(sessionPersistence);
       const record: BffSessionRecord = {
         tokens,
         user,
         revision: newSessionSecret(),
         busyUntil: null,
-        expiresAt: Date.now() + this.absoluteTimeout,
-        idleExpiresAt: Date.now() + this.idleTimeout,
+        sessionPersistence,
+        expiresAt: Date.now() + lifetime.absoluteTimeoutMs,
+        idleExpiresAt: Date.now() + lifetime.idleTimeoutMs,
       };
       return { id: await this.repository.create(record), record };
     } catch (error) {
@@ -108,7 +118,10 @@ export class BffSessionManager {
       await this.repository.release(lease);
       throw error;
     }
-    lease.record.idleExpiresAt = Math.min(lease.record.expiresAt, Date.now() + this.idleTimeout);
+    lease.record.idleExpiresAt = Math.min(
+      lease.record.expiresAt,
+      Date.now() + this.sessionLifetime(lease.record.sessionPersistence).idleTimeoutMs,
+    );
     await this.repository.release(lease);
     return lease.record;
   }
@@ -144,8 +157,26 @@ export class BffSessionManager {
       return this.readCurrent(id, changeRetries + 1);
     }
 
-    const idleExpiresAt = Math.min(lease.record.expiresAt, Date.now() + this.idleTimeout);
+    const idleExpiresAt = Math.min(
+      lease.record.expiresAt,
+      Date.now() + this.sessionLifetime(lease.record.sessionPersistence).idleTimeoutMs,
+    );
     return (await this.repository.touch(lease, idleExpiresAt)) ?? lease.record;
+  }
+
+  private createSessionLifetime(lifetime: BffSessionLifetime): BffSessionLifetime {
+    const absoluteTimeoutMs = positiveDuration(lifetime.absoluteTimeoutMs);
+    const idleTimeoutMs = positiveDuration(lifetime.idleTimeoutMs);
+    if (idleTimeoutMs > absoluteTimeoutMs)
+      throw new Error("Authyon BFF: idle timeout must not exceed absolute timeout");
+    return { absoluteTimeoutMs, idleTimeoutMs };
+  }
+
+  private sessionLifetime(
+    sessionPersistence: BffSessionPersistence | undefined,
+  ): BffSessionLifetime {
+    if (sessionPersistence === "remembered") return this.rememberedSession;
+    return this.standardSession;
   }
 
   private needsRefresh(record: BffSessionRecord): boolean {

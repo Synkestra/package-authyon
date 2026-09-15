@@ -6,6 +6,9 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 - Entrypoint `@authyon/server/bff` com handlers Fetch para login, 2FA, leitura da sessão,
   logout e troca de organização; cookies HttpOnly, origem estrita e proteção CSRF.
+- Login e 2FA do BFF aceitam a seleção explícita de sessão lembrada, mantida somente no
+  servidor com prazos absoluto e de inatividade configuráveis. O indicador nunca é enviado
+  ao Authyon upstream; logout e revogação continuam invalidando a sessão local.
 - Sessões com prazo absoluto/inatividade, renovação sob demanda e CAS para impedir
   refresh concorrente, gravação tardia e restauração de sessão após logout.
 - Adaptadores de sessão em memória (desenvolvimento) e Redis com cifra A256GCM,

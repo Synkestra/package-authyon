@@ -49,6 +49,10 @@ export const sessions = createBffSession({
   }),
   absoluteTimeoutMs: 8 * 60 * 60 * 1000,
   idleTimeoutMs: 30 * 60 * 1000,
+  rememberedSession: {
+    absoluteTimeoutMs: 90 * 24 * 60 * 60 * 1000,
+    idleTimeoutMs: 30 * 24 * 60 * 60 * 1000,
+  },
   refreshAheadMs: 30_000,
 });
 ```
@@ -75,8 +79,8 @@ export const POST = sessions.login;
 
 | Rota sugerida | Export | Handler | Corpo JSON |
 | --- | --- | --- | --- |
-| `/api/session/login` | POST | `sessions.login` | `email` ou `username`, `password`, `organizationSlug?` |
-| `/api/session/two-factor` | POST | `sessions.verifyTwoFactor` | `challengeToken`, `method`, `code` ou `webAuthnAssertion` |
+| `/api/session/login` | POST | `sessions.login` | `email` ou `username`, `password`, `organizationSlug?`, `sessionPersistence?` |
+| `/api/session/two-factor` | POST | `sessions.verifyTwoFactor` | `challengeToken`, `method`, `code` ou `webAuthnAssertion`, `sessionPersistence?` |
 | `/api/session` | GET | `sessions.session` | nenhum |
 | `/api/session/organization` | POST | `sessions.switchOrganization` | `organizationSlug` |
 | `/api/session/logout` | POST | `sessions.logout` | nenhum |
@@ -94,6 +98,13 @@ e `methods`; não cria sessão. O Authyon continua responsável pela validade e 
 login por passkey ou início de cerimônia WebAuthn; os endpoints existentes do
 SDK continuam disponíveis. Não transporte seus resultados com tokens pelo
 browser se expandir a integração BFF para esses fluxos.
+
+## Sessão lembrada
+
+O browser pode pedir `sessionPersistence: "remembered"` no login e também na
+confirmação 2FA. Isso não escolhe um TTL: o BFF aplica exclusivamente os limites
+de `rememberedSession` configurados no servidor. Sem esse campo, a sessão usa os
+timeouts existentes de `absoluteTimeoutMs` e `idleTimeoutMs`.
 
 ## Browser e CSRF
 

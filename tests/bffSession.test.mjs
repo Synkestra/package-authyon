@@ -57,9 +57,9 @@ function fixture(options = {}) {
   };
   const bffOptions = { origin: ORIGIN, provider, store, ...options };
   const bff = createBffSession(bffOptions);
-  async function login(email = "alice@example.com") {
+  async function login(email = "alice@example.com", sessionPersistence = "standard") {
     const response = await bff.login(
-      request("POST", undefined, { email, password: "password-secret" }),
+      request("POST", undefined, { email, password: "password-secret", sessionPersistence }),
     );
     assert.equal(response.status, 200);
     return { response, cookie: response.headers.get("set-cookie").split(";")[0] };
@@ -87,6 +87,46 @@ test("login emits an opaque protected cookie and allowlists the public response"
   );
   const session = await f.bff.session(request("GET", cookie));
   assert.equal((await session.json()).user.id, "alice");
+});
+
+test("remembered login uses only the server-configured lifetime", async (t) => {
+  let now = Date.now();
+  t.mock.method(Date, "now", () => now);
+  const f = fixture({
+    rememberedSession: { absoluteTimeoutMs: 90_000, idleTimeoutMs: 40_000 },
+  });
+  const { response, cookie } = await f.login("alice@example.com", "remembered");
+  assert.match(response.headers.get("set-cookie"), /Max-Age=90/);
+  const record = await f.store.read(keyFromCookie(cookie));
+  assert.equal(record.sessionPersistence, "remembered");
+  now += 40_001;
+  assert.equal((await f.bff.session(request("GET", cookie))).status, 401);
+});
+
+test("refresh keeps the remembered idle timeout instead of the standard timeout", async (t) => {
+  let now = Date.now();
+  t.mock.method(Date, "now", () => now);
+  const f = fixture({
+    idleTimeoutMs: 5_000,
+    rememberedSession: { absoluteTimeoutMs: 90_000, idleTimeoutMs: 40_000 },
+  });
+  const { cookie } = await f.login("alice@example.com", "remembered");
+  now += 35_000;
+  assert.equal((await f.bff.session(request("GET", cookie))).status, 200);
+  now += 6_000;
+  assert.equal((await f.bff.session(request("GET", cookie))).status, 200);
+});
+
+test("login rejects an unknown session persistence mode", async () => {
+  const f = fixture();
+  const response = await f.bff.login(
+    request("POST", undefined, {
+      email: "alice@example.com",
+      password: "password-secret",
+      sessionPersistence: "unlimited",
+    }),
+  );
+  assert.equal(response.status, 400);
 });
 
 test("independent browsers keep separate user credentials", async () => {
@@ -405,6 +445,25 @@ test("two-factor challenge does not establish a session or expose arbitrary prov
   );
   assert.equal(completed.status, 200);
   assert.match(completed.headers.get("set-cookie"), /HttpOnly/);
+});
+
+test("two-factor verification preserves the remembered session policy", async () => {
+  const f = fixture({
+    rememberedSession: { absoluteTimeoutMs: 90_000, idleTimeoutMs: 40_000 },
+  });
+  const response = await f.bff.verifyTwoFactor(
+    request("POST", undefined, {
+      challengeToken: "challenge",
+      method: "authenticator",
+      code: "123456",
+      sessionPersistence: "remembered",
+    }),
+  );
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("set-cookie"), /Max-Age=90/);
+  const cookie = response.headers.get("set-cookie").split(";")[0];
+  const record = await f.store.read(keyFromCookie(cookie));
+  assert.equal(record.sessionPersistence, "remembered");
 });
 
 test("login cannot silently replace an authenticated identity", async () => {

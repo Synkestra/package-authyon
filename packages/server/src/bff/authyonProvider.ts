@@ -94,19 +94,26 @@ export function createAuthyonBffProvider(options: AuthyonBffProviderOptions): Bf
 
   return {
     async login(input) {
-      const { organizationSlug, ...credentials } = input;
+      const credentials = { ...input };
+      delete credentials.organizationSlug;
+      delete credentials.sessionPersistence;
       const response = object(
         await http.request("/auth/login", {
           method: "POST",
           headers,
-          body: { ...credentials, ...(organizationSlug ? { tenantSlug: organizationSlug } : {}) },
+          body: {
+            ...credentials,
+            ...(input.organizationSlug ? { tenantSlug: input.organizationSlug } : {}),
+          },
         }),
       );
       return response.twoFactor ? readChallenge(response.twoFactor) : readTokens(response);
     },
     async verifyTwoFactor(input) {
+      const verification = { ...input };
+      delete verification.sessionPersistence;
       return readTokens(
-        await http.request("/auth/2fa/verify", { method: "POST", headers, body: input }),
+        await http.request("/auth/2fa/verify", { method: "POST", headers, body: verification }),
       );
     },
     async refresh(refreshToken) {
