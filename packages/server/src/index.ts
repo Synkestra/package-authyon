@@ -68,6 +68,7 @@ export type {
   AuthyonServerClientOptions,
   ClientCredentials,
   CreateTenantCredentialInput,
+  TenantClientValidationResult,
   TenantCredentialIssued,
   TenantCredentialSummary,
   CreateOrganizationInput,

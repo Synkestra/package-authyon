@@ -182,6 +182,61 @@ test("both clients accept the shared HttpAdapter contract", async () => {
   assert.equal(requests[0].signal instanceof globalThis.AbortSignal, true);
 });
 
+test("both clients forward a configured origin IP on every request", async () => {
+  const requests = [];
+  const httpAdapter = {
+    async request(request) {
+      requests.push(request);
+      return new globalThis.Response(JSON.stringify([]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    },
+  };
+  const browserClient = createClient({
+    envKey: "pk_test",
+    clientIp: "203.0.113.10",
+    httpAdapter,
+  });
+  const serverClient = createServerClient({
+    envKey: "pk_test",
+    clientIp: "2001:db8::10",
+    httpAdapter,
+  });
+
+  await browserClient.sso.providers();
+  await serverClient.discovery.jwks();
+
+  assert.equal(new globalThis.Headers(requests[0].headers).get("x-forwarded-for"), "203.0.113.10");
+  assert.equal(new globalThis.Headers(requests[1].headers).get("x-forwarded-for"), "2001:db8::10");
+});
+
+test("per-call server origin IP overrides the configured default", async () => {
+  const requests = [];
+  const client = createServerClient({
+    envKey: "pk_test",
+    clientId: "client",
+    clientSecret: "secret",
+    clientIp: "203.0.113.10",
+    httpAdapter: {
+      async request(request) {
+        requests.push(request);
+        const body = request.url.endsWith("/env/oauth/token")
+          ? { access_token: "machine", token_type: "Bearer", expires_in: 300 }
+          : { valid: true, profile: null };
+        return new globalThis.Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    },
+  });
+
+  await client.validate("access-token", { clientIp: "198.51.100.20" });
+
+  assert.equal(new globalThis.Headers(requests[1].headers).get("x-forwarded-for"), "198.51.100.20");
+});
+
 test("httpAdapter and legacy fetch cannot be configured together", () => {
   assert.throws(
     () =>

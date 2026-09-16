@@ -4,6 +4,10 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+## 0.2.0-beta.7
+
+### Adicionado
+
 - Entrypoint `@authyon/server/bff` com handlers Fetch para login, 2FA, leitura da sessão,
   logout e troca de organização; cookies HttpOnly, origem estrita e proteção CSRF.
 - Login e 2FA do BFF aceitam a seleção explícita de sessão lembrada, mantida somente no
@@ -15,6 +19,18 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
   TTL e associação criptográfica à chave da sessão. Sem nova dependência de runtime.
 - Guia de integração e testes de segurança/concorrência. O transporte é opt-in;
   consumidores existentes continuam usando seus contratos atuais.
+
+### Corrigido
+
+- Convergência com a linha `dev/jacson`, publicada como `0.2.0-beta.6` sem passar por
+  `main`: a validação de tenant-client (`TenantScopedClient.validate()`, ver `0.2.0-beta.5`
+  abaixo) estava ausente do BFF até este merge.
+
+## 0.2.0-beta.5
+
+### Adicionado
+
+- `TenantScopedClient.validate()` no `@authyon/server`, chamando `POST /tenant/auth/validate` para confirmar o bearer tenant-client atual e retornar o escopo vigente da credencial.
 
 ## 0.2.0-beta.4
 
