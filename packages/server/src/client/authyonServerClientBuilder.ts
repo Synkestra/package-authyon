@@ -17,6 +17,11 @@ export class AuthyonServerClientBuilder {
     return this;
   }
 
+  withClientIp(clientIp: string): this {
+    this.#options.clientIp = clientIp;
+    return this;
+  }
+
   withBaseUrl(baseUrl: string, allowInsecureHttp = false): this {
     this.#options.baseUrl = baseUrl;
     this.#options.allowInsecureHttp = allowInsecureHttp;

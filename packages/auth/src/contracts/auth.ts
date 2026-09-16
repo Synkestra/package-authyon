@@ -220,6 +220,12 @@ export type AuthState = "signed_out" | "authenticated" | "expired";
 export interface AuthyonClientOptions {
   /** Publishable environment key (`pk_live_...` / `pk_test_...`). */
   envKey: string;
+  /**
+   * Originating client IP to forward on every API call as `X-Forwarded-For`.
+   * Browsers cannot reliably discover their public IP by themselves; set this
+   * only when your application receives it from trusted infrastructure.
+   */
+  clientIp?: string;
   /** API origin. Defaults to `https://api.authyon.com`; HTTPS is required outside loopback. */
   baseUrl?: string;
   /** Allow an HTTP `baseUrl`. Intended only for explicitly trusted local development. */

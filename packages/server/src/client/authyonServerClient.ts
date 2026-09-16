@@ -36,6 +36,7 @@ import type {
   CreateTenantCredentialInput,
   TenantCredentialIssued,
   TenantCredentialSummary,
+  TenantClientValidationResult,
   CreateOrganizationInput,
   CreatePermissionInput,
   CreateUserInput,
@@ -75,6 +76,7 @@ export class AuthyonServerClient {
   private readonly envKey?: string;
   private readonly clientId?: string;
   #clientSecret?: string;
+  private readonly clientIpHeader: Record<string, string>;
   private readonly transport: ReturnType<typeof createSharedTransport>;
   private readonly http: JsonHttpClient;
   private readonly environmentTokenProvider: ExpiringTokenProvider;
@@ -83,6 +85,7 @@ export class AuthyonServerClient {
     this.envKey = options.envKey;
     this.clientId = options.clientId;
     this.#clientSecret = options.clientSecret;
+    this.clientIpHeader = clientIpHeaders({ clientIp: options.clientIp });
     this.transport = createSharedTransport({
       baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
       allowInsecureHttp: options.allowInsecureHttp,
@@ -111,7 +114,10 @@ export class AuthyonServerClient {
   }
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const headers: Record<string, string> = { ...options.headers };
+    const headers: Record<string, string> = {
+      ...this.clientIpHeader,
+      ...options.headers,
+    };
     if (options.envBearer) {
       headers.Authorization = `Bearer ${await this.getEnvironmentAccessToken()}`;
     }
@@ -169,7 +175,7 @@ export class AuthyonServerClient {
   // returns 401 with `WWW-Authenticate: Bearer`.
 
   /** POST /auth/introspect — lightweight token introspection (RFC 7662). */
-  introspect(token: string, context?: ClientRequestContext): Promise<IntrospectResult> {
+  async introspect(token: string, context?: ClientRequestContext): Promise<IntrospectResult> {
     return this.request("/auth/introspect", {
       method: "POST",
       envBearer: true,
@@ -219,6 +225,18 @@ export class AuthyonServerClient {
           grant_type: "client_credentials",
           client_id: credentials.clientId,
           client_secret: credentials.clientSecret,
+        },
+      }),
+    /** POST /tenant/auth/validate — validates an already-minted tenant-client bearer token. */
+    validate: async (
+      accessToken: string,
+      context?: ClientRequestContext,
+    ): Promise<TenantClientValidationResult> =>
+      this.request("/tenant/auth/validate", {
+        method: "POST",
+        headers: {
+          ...clientIpHeaders(context),
+          Authorization: `Bearer ${accessToken}`,
         },
       }),
   };
@@ -690,6 +708,11 @@ export class TenantScopedClient {
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     return this.server._requestAsTenant(await this.getAccessToken(), path, options);
+  }
+
+  /** POST /tenant/auth/validate — validates this tenant client's current bearer token. */
+  async validate(context?: ClientRequestContext): Promise<TenantClientValidationResult> {
+    return this.server.tenantAuth.validate(await this.getAccessToken(), context);
   }
 
   readonly members = {
