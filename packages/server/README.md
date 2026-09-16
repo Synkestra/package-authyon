@@ -205,9 +205,10 @@ await acme.roles.create({ name: "viewer", permissions: ["reports:read"] });
 ```
 
 `validate()` confirma o bearer tenant-client atual e devolve `tenantId`,
-`credentialId`, `clientId` e as permissões vigentes da credencial. A resposta
-vem do backend depois da checagem de revogação, rotação de secret e tenant
-desabilitado; não confie só na claim `scope` quando precisar do estado atual.
+`workspaceId`, `environmentId`, `credentialId`, `clientId` e as permissões
+vigentes da credencial. A resposta vem do backend depois da checagem de
+revogação, rotação de secret e tenant desabilitado; não confie só na claim
+`scope` quando precisar do estado atual.
 
 Em middleware, quando você já recebeu o bearer tenant-client na requisição, não
 use `clientId`/`clientSecret`; valide o token diretamente:

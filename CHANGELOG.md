@@ -22,9 +22,19 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ### Corrigido
 
-- Convergência com a linha `dev/jacson`, publicada como `0.2.0-beta.6` sem passar por
-  `main`: a validação de tenant-client (`TenantScopedClient.validate()`, ver `0.2.0-beta.5`
-  abaixo) estava ausente do BFF até este merge.
+- Convergência com a linha `dev/jacson`: a validação de tenant-client
+  (`TenantScopedClient.validate()`, publicada como `0.2.0-beta.5`/`0.2.0-beta.6`,
+  ver abaixo) estava ausente do BFF até este merge.
+
+## 0.2.0-beta.6
+
+Publicada no npm sem tag nem release correspondente neste repositório, e sem
+commit próprio em `main` — o release automatizado (`npm-publish.yaml`) falhou
+em toda execução histórica por falta de permissão de publish do token de CI, o
+que forçou publicação manual, fora do pipeline. Nenhuma alteração de código
+está registrada no histórico de `main` entre `0.2.0-beta.5` e esta versão; o
+bump de versão em si não corresponde a um diff de fonte rastreável neste
+repositório.
 
 ## 0.2.0-beta.5
 
