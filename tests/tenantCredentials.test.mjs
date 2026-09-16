@@ -151,3 +151,20 @@ test("validates an existing tenant client bearer without client credentials", as
   assert.equal(headers.get("x-authyon-environment"), "pk_test");
   assert.equal(headers.get("x-forwarded-for"), "203.0.113.10");
 });
+
+test("an invalid clientIp on tenantAuth.validate rejects instead of throwing synchronously", async () => {
+  const client = createClient({
+    envKey: "pk_test",
+    httpAdapter: {
+      async request() {
+        throw new Error("should not reach the network");
+      },
+    },
+  });
+
+  let result;
+  assert.doesNotThrow(() => {
+    result = client.tenantAuth.validate("tenant-token", { clientIp: "1.2.3.4, 10.0.0.1" });
+  });
+  await assert.rejects(result, /clientIp/);
+});

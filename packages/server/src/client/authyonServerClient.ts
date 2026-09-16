@@ -76,7 +76,7 @@ export class AuthyonServerClient {
   private readonly envKey?: string;
   private readonly clientId?: string;
   #clientSecret?: string;
-  private readonly clientIp?: string;
+  private readonly clientIpHeader: Record<string, string>;
   private readonly transport: ReturnType<typeof createSharedTransport>;
   private readonly http: JsonHttpClient;
   private readonly environmentTokenProvider: ExpiringTokenProvider;
@@ -85,7 +85,7 @@ export class AuthyonServerClient {
     this.envKey = options.envKey;
     this.clientId = options.clientId;
     this.#clientSecret = options.clientSecret;
-    this.clientIp = options.clientIp;
+    this.clientIpHeader = clientIpHeaders({ clientIp: options.clientIp });
     this.transport = createSharedTransport({
       baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
       allowInsecureHttp: options.allowInsecureHttp,
@@ -115,7 +115,7 @@ export class AuthyonServerClient {
 
   private async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const headers: Record<string, string> = {
-      ...clientIpHeaders({ clientIp: this.clientIp }),
+      ...this.clientIpHeader,
       ...options.headers,
     };
     if (options.envBearer) {
@@ -175,7 +175,7 @@ export class AuthyonServerClient {
   // returns 401 with `WWW-Authenticate: Bearer`.
 
   /** POST /auth/introspect — lightweight token introspection (RFC 7662). */
-  introspect(token: string, context?: ClientRequestContext): Promise<IntrospectResult> {
+  async introspect(token: string, context?: ClientRequestContext): Promise<IntrospectResult> {
     return this.request("/auth/introspect", {
       method: "POST",
       envBearer: true,
@@ -228,7 +228,7 @@ export class AuthyonServerClient {
         },
       }),
     /** POST /tenant/auth/validate — validates an already-minted tenant-client bearer token. */
-    validate: (
+    validate: async (
       accessToken: string,
       context?: ClientRequestContext,
     ): Promise<TenantClientValidationResult> =>
