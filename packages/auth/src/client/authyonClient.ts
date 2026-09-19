@@ -461,8 +461,9 @@ export class AuthyonClient {
   // ── Organization ─────────────────────────────────────────────────────────
 
   readonly organization = {
-    /** GET /auth/tenants — all organization memberships. */
-    list: (): Promise<Organization[]> => this.request("/auth/tenants", { bearer: true }),
+    /** GET /auth/tenants — filterable list of organization memberships. */
+    list: (params: { search?: string } & PaginationOptions = {}): Promise<Organization[]> =>
+      this.request(appendQuery("/auth/tenants", params), { bearer: true }),
 
     /**
      * POST /auth/tenants — creates an organization owned by the signed-in

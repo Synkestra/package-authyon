@@ -4,6 +4,12 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+## 0.2.0-beta.7
+
+### Alterado
+
+- `organization.list()` no `@authyon/auth` agora aceita `search`, `skip` e `take`.
+
 ## 0.2.0-beta.5
 
 ### Adicionado
