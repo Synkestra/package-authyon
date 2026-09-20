@@ -480,6 +480,17 @@ export class AuthyonServerClient {
           body: input,
         }),
 
+      /** PUT /env/tenants/{tenantId}/metadata - replace public and private metadata. */
+      updateMetadata: (
+        tenantId: string,
+        input: Pick<CreateOrganizationInput, "publicMetadata" | "privateMetadata">,
+      ): Promise<void> =>
+        this.request(`/env/tenants/${encodeURIComponent(tenantId)}/metadata`, {
+          method: "PUT",
+          envBearer: true,
+          body: input,
+        }),
+
       /** DELETE /env/tenants/{tenantId} — delete a tenant. */
       delete: (tenantId: string): Promise<void> =>
         this.request(`/env/tenants/${encodeURIComponent(tenantId)}`, {

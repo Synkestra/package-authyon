@@ -10,6 +10,10 @@ export interface Organization {
   memberCount?: number;
   createdAt?: string;
   updatedAt?: string;
+  /** JSON-encoded metadata that may be exposed to tenant members. */
+  publicMetadata?: string;
+  /** JSON-encoded metadata available only through administrative APIs. */
+  privateMetadata?: string;
 }
 
 /** One of a user's tenant memberships, as embedded in `EnvironmentUser.tenantMemberships`. */
@@ -161,6 +165,8 @@ export interface CreateOrganizationInput {
   name: string;
   slug: string;
   description?: string;
+  publicMetadata?: Record<string, unknown>;
+  privateMetadata?: Record<string, unknown>;
 }
 
 export interface UpdateOrganizationInput {

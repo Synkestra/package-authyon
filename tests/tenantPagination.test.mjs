@@ -49,3 +49,80 @@ test("environment tenants forwards pagination and search parameters", async () =
     true,
   );
 });
+
+test("environment tenant creation forwards public and private metadata", async () => {
+  const requests = [];
+  const created = {
+    id: "tenant-1",
+    slug: "acme",
+    name: "Acme",
+    publicMetadata: JSON.stringify({ logo: "logo.png" }),
+    privateMetadata: JSON.stringify({ billingId: "cus_123" }),
+  };
+  const client = createClient({
+    envKey: "pk_test",
+    clientId: "client",
+    clientSecret: "secret",
+    httpAdapter: {
+      async request(request) {
+        requests.push(request);
+        if (request.url.endsWith("/env/oauth/token")) {
+          return globalThis.Response.json({
+            access_token: "machine",
+            token_type: "Bearer",
+            expires_in: 300,
+          });
+        }
+        return globalThis.Response.json(created, { status: 201 });
+      },
+    },
+  });
+
+  const result = await client.environment.tenants.create({
+    name: "Acme",
+    slug: "acme",
+    publicMetadata: { logo: "logo.png" },
+    privateMetadata: { billingId: "cus_123" },
+  });
+
+  assert.deepEqual(result, created);
+  assert.deepEqual(JSON.parse(requests[1].body), {
+    name: "Acme",
+    slug: "acme",
+    publicMetadata: { logo: "logo.png" },
+    privateMetadata: { billingId: "cus_123" },
+  });
+});
+
+test("environment tenant metadata update stays on the client API", async () => {
+  const requests = [];
+  const client = createClient({
+    envKey: "pk_test",
+    clientId: "client",
+    clientSecret: "secret",
+    httpAdapter: {
+      async request(request) {
+        requests.push(request);
+        if (request.url.endsWith("/env/oauth/token")) {
+          return globalThis.Response.json({
+            access_token: "machine",
+            token_type: "Bearer",
+            expires_in: 300,
+          });
+        }
+        return new globalThis.Response(null, { status: 204 });
+      },
+    },
+  });
+
+  await client.environment.tenants.updateMetadata("tenant/a", {
+    publicMetadata: { logo: "logo.png" },
+    privateMetadata: { billingId: "cus_123" },
+  });
+
+  assert.equal(requests[1].url, "https://api.authyon.com/env/tenants/tenant%2Fa/metadata");
+  assert.deepEqual(JSON.parse(requests[1].body), {
+    publicMetadata: { logo: "logo.png" },
+    privateMetadata: { billingId: "cus_123" },
+  });
+});
