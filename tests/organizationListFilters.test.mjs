@@ -41,3 +41,40 @@ test("organization list forwards search and pagination filters", async () => {
     true,
   );
 });
+
+test("organization creation forwards custom fields", async () => {
+  const requests = [];
+  const created = {
+    id: "tenant-1",
+    slug: "acme",
+    name: "Acme",
+    customFields: JSON.stringify({ setor: "Tecnologia" }),
+  };
+  const httpAdapter = {
+    async request(request) {
+      requests.push(request);
+      return globalThis.Response.json(created, { status: 201 });
+    },
+  };
+  const storage = createMemoryStorage();
+  storage.set({
+    accessToken: "access",
+    refreshToken: "refresh",
+    expiresIn: 60,
+    expiresAt: Date.now() + 60_000,
+  });
+  const client = createClient({ envKey: "pk_test", httpAdapter, storage });
+
+  const result = await client.organization.create({
+    name: "Acme",
+    slug: "acme",
+    customFields: { setor: "Tecnologia" },
+  });
+
+  assert.deepEqual(result, created);
+  assert.deepEqual(JSON.parse(requests[0].body), {
+    name: "Acme",
+    slug: "acme",
+    customFields: { setor: "Tecnologia" },
+  });
+});

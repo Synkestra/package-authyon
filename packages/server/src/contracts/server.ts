@@ -10,6 +10,8 @@ export interface Organization {
   memberCount?: number;
   createdAt?: string;
   updatedAt?: string;
+  /** JSON-encoded values for the tenant's configured custom fields. */
+  customFields?: string;
   /** JSON-encoded metadata that may be exposed to tenant members. */
   publicMetadata?: string;
   /** JSON-encoded metadata available only through administrative APIs. */
@@ -165,6 +167,7 @@ export interface CreateOrganizationInput {
   name: string;
   slug: string;
   description?: string;
+  customFields?: Record<string, unknown>;
   publicMetadata?: Record<string, unknown>;
   privateMetadata?: Record<string, unknown>;
 }

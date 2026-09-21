@@ -8,6 +8,8 @@ export interface Organization {
   name?: string;
   description?: string;
   roles?: string[];
+  /** JSON-encoded values for the organization's configured custom fields. */
+  customFields?: string;
   /** JSON-encoded metadata visible to members of the organization. */
   publicMetadata?: string;
 }
@@ -17,6 +19,7 @@ export interface CreateOrganizationInput {
   name?: string;
   slug?: string;
   description?: string;
+  customFields?: Record<string, unknown>;
 }
 
 /** GET /auth/tenants/{organizationId}/members — confirmed against the live API. */

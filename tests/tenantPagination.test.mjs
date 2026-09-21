@@ -50,12 +50,13 @@ test("environment tenants forwards pagination and search parameters", async () =
   );
 });
 
-test("environment tenant creation forwards public and private metadata", async () => {
+test("environment tenant creation forwards custom fields and metadata", async () => {
   const requests = [];
   const created = {
     id: "tenant-1",
     slug: "acme",
     name: "Acme",
+    customFields: JSON.stringify({ cnpj: "00.000.000/0001-00" }),
     publicMetadata: JSON.stringify({ logo: "logo.png" }),
     privateMetadata: JSON.stringify({ billingId: "cus_123" }),
   };
@@ -81,6 +82,7 @@ test("environment tenant creation forwards public and private metadata", async (
   const result = await client.environment.tenants.create({
     name: "Acme",
     slug: "acme",
+    customFields: { cnpj: "00.000.000/0001-00" },
     publicMetadata: { logo: "logo.png" },
     privateMetadata: { billingId: "cus_123" },
   });
@@ -89,6 +91,7 @@ test("environment tenant creation forwards public and private metadata", async (
   assert.deepEqual(JSON.parse(requests[1].body), {
     name: "Acme",
     slug: "acme",
+    customFields: { cnpj: "00.000.000/0001-00" },
     publicMetadata: { logo: "logo.png" },
     privateMetadata: { billingId: "cus_123" },
   });

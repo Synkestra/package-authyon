@@ -16,6 +16,13 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 - Guia de integração e testes de segurança/concorrência. O transporte é opt-in;
   consumidores existentes continuam usando seus contratos atuais.
 
+## 0.2.0-beta.9
+
+### Adicionado
+
+- `customFields` aos contratos de leitura e criação de tenants em `@authyon/auth` e
+  `@authyon/server`.
+
 ## 0.2.0-beta.8
 
 ### Adicionado
