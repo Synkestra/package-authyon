@@ -16,6 +16,29 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 - Guia de integração e testes de segurança/concorrência. O transporte é opt-in;
   consumidores existentes continuam usando seus contratos atuais.
 
+## 0.2.0-beta.8
+
+### Adicionado
+
+- `hasPermissionGroup()` em `@authyon/auth` e `@authyon/server`, com suporte a grupos `allOf` e `anyOf`.
+- `environment.tenants.disable()` no `@authyon/server` para desativar um tenant sem remover seus dados.
+
+### Alterado
+
+- Formatação dos contratos e testes de gerenciamento de credenciais.
+
+## 0.2.0-beta.7
+
+### Alterado
+
+- `organization.list()` no `@authyon/auth` agora aceita `search`, `skip` e `take`.
+
+## 0.2.0-beta.5
+
+### Adicionado
+
+- `TenantScopedClient.validate()` no `@authyon/server`, chamando `POST /tenant/auth/validate` para confirmar o bearer tenant-client atual e retornar o escopo vigente da credencial.
+
 ## 0.2.0-beta.4
 
 ### Adicionado

@@ -10,6 +10,10 @@ export interface Organization {
   memberCount?: number;
   createdAt?: string;
   updatedAt?: string;
+  /** JSON-encoded metadata that may be exposed to tenant members. */
+  publicMetadata?: string;
+  /** JSON-encoded metadata available only through administrative APIs. */
+  privateMetadata?: string;
 }
 
 /** One of a user's tenant memberships, as embedded in `EnvironmentUser.tenantMemberships`. */
@@ -161,6 +165,8 @@ export interface CreateOrganizationInput {
   name: string;
   slug: string;
   description?: string;
+  publicMetadata?: Record<string, unknown>;
+  privateMetadata?: Record<string, unknown>;
 }
 
 export interface UpdateOrganizationInput {
@@ -252,6 +258,18 @@ export interface TokenResult {
   scope?: string;
 }
 
+/** POST /tenant/auth/validate — validates the current tenant-client bearer. */
+export interface TenantClientValidationResult {
+  valid: boolean;
+  reason?: string | null;
+  tenantId: string;
+  workspaceId: string;
+  environmentId: string;
+  credentialId: string;
+  clientId: string;
+  permissions: string[];
+}
+
 export interface JsonWebKeySet {
   keys: Record<string, unknown>[];
 }
@@ -280,6 +298,12 @@ export interface AuthyonServerClientOptions {
    */
   clientId?: string;
   clientSecret?: string;
+  /**
+   * Originating end-user IP to forward on every API call as `X-Forwarded-For`.
+   * Only set this from infrastructure you trust; the SDK rejects comma-separated
+   * or whitespace-containing values to avoid forwarded-header injection.
+   */
+  clientIp?: string;
   /** API origin. Defaults to `https://api.authyon.com`. */
   baseUrl?: string;
   /** Allow an HTTP `baseUrl`. Intended only for explicitly trusted local development. */

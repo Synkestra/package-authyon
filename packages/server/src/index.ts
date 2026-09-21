@@ -25,6 +25,7 @@ export {
   createAuthyonRules,
   createAuthyonAbility,
   hasPermission,
+  hasPermissionGroup,
 } from "../../../internal/core/authorization/ability";
 export {
   AuthorizationError,
@@ -62,12 +63,14 @@ export type {
   AbilitySubject,
   AuthyonPermissionSource,
   AuthyonAbilityOptions,
+  PermissionGroup,
 } from "../../../internal/core/authorization/ability";
 export type {
   AuditEvent,
   AuthyonServerClientOptions,
   ClientCredentials,
   CreateTenantCredentialInput,
+  TenantClientValidationResult,
   TenantCredentialIssued,
   TenantCredentialSummary,
   CreateOrganizationInput,

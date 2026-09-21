@@ -8,6 +8,7 @@ import {
   JsonHttpClient,
   type JsonRequestOptions,
 } from "../../../../internal/core/http/jsonHttpClient";
+import { clientIpHeaders } from "../../../../internal/core/http/clientIp";
 import { appendQuery } from "../../../../internal/core/http/query";
 import { createSharedTransport } from "../../../../internal/core/http/transport";
 import type {
@@ -90,6 +91,7 @@ function readTokens(raw: LoginLikeResponse): Required<WireTokens> {
 
 export class AuthyonClient {
   private readonly envKey: string;
+  private readonly clientIp?: string;
   private readonly baseUrl: string;
   private readonly storage: TokenStorage;
   private readonly autoRefresh: boolean;
@@ -102,6 +104,7 @@ export class AuthyonClient {
     if (!options.envKey)
       throw new Error("Authyon: `envKey` is required (pk_live_... / pk_test_...)");
     this.envKey = options.envKey;
+    this.clientIp = options.clientIp;
     this.transport = createSharedTransport({
       baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
       allowInsecureHttp: options.allowInsecureHttp,
@@ -239,6 +242,7 @@ export class AuthyonClient {
   ): Promise<T> {
     const headers: Record<string, string> = {
       "X-Authyon-Environment": this.envKey,
+      ...clientIpHeaders({ clientIp: this.clientIp }),
       ...options.headers,
     };
     if (options.bearer) {
@@ -457,8 +461,9 @@ export class AuthyonClient {
   // ── Organization ─────────────────────────────────────────────────────────
 
   readonly organization = {
-    /** GET /auth/tenants — all organization memberships. */
-    list: (): Promise<Organization[]> => this.request("/auth/tenants", { bearer: true }),
+    /** GET /auth/tenants — filterable list of organization memberships. */
+    list: (params: { search?: string } & PaginationOptions = {}): Promise<Organization[]> =>
+      this.request(appendQuery("/auth/tenants", params), { bearer: true }),
 
     /**
      * POST /auth/tenants — creates an organization owned by the signed-in

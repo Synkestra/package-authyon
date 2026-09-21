@@ -29,6 +29,7 @@ export {
   createAuthyonRules,
   createAuthyonAbility,
   hasPermission,
+  hasPermissionGroup,
 } from "../../../internal/core/authorization/ability";
 export type {
   AbilityConditions,
@@ -38,6 +39,7 @@ export type {
   AbilitySubject,
   AuthyonPermissionSource,
   AuthyonAbilityOptions,
+  PermissionGroup,
 } from "../../../internal/core/authorization/ability";
 export type {
   Activity,

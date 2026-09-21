@@ -229,7 +229,7 @@ Métodos de sessão/auth ficam soltos no client; os que giram em torno de um rec
 
 | Método                                                | Endpoint                                       |
 | ----------------------------------------------------- | ---------------------------------------------- |
-| `organization.list()`                                 | `GET /auth/tenants`                            |
+| `organization.list({ search?, skip?, take? })`        | `GET /auth/tenants`                            |
 | `organization.create(params?)`                        | `POST /auth/tenants`                           |
 | `organization.get(organizationId)`                    | `GET /auth/tenants/{id}`                       |
 | `organization.rename(organizationId, name)`           | `PATCH /auth/tenants/{id}`                     |

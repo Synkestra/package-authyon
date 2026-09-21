@@ -26,6 +26,11 @@ export class AuthyonClientBuilder {
     return this;
   }
 
+  withClientIp(clientIp: string): this {
+    this.options.clientIp = clientIp;
+    return this;
+  }
+
   withTimeout(timeoutMs: number): this {
     this.options.timeoutMs = timeoutMs;
     return this;
