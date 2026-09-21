@@ -5,6 +5,7 @@ import {
   AuthyonAbilityBuilder,
   createAuthyonAbility,
   hasPermission,
+  hasPermissionGroup,
 } from "../packages/auth/dist/index.js";
 import { createAuthyonAbility as createServerAbility } from "../packages/server/dist/index.js";
 
@@ -30,6 +31,27 @@ test("supports wildcards in namespaced permission segments", () => {
   assert.equal(hasPermission(source, "monkeypay:wallets:read"), true);
   assert.equal(hasPermission(source.permissions, "monkeypay:wallets:read"), true);
   assert.equal(hasPermission(source, "another:wallets:read"), false);
+});
+
+test("evaluates allOf and anyOf permission groups", () => {
+  const source = {
+    permissions: ["split.rules:read", "split.payments:*"],
+  };
+
+  assert.equal(
+    hasPermissionGroup(source, {
+      allOf: ["split.rules:read", "split.payments:create"],
+      anyOf: ["split.audit:read", "split.payments:update"],
+    }),
+    true,
+  );
+  assert.equal(
+    hasPermissionGroup(source, {
+      allOf: ["split.rules:read", "split.audit:read"],
+    }),
+    false,
+  );
+  assert.equal(hasPermissionGroup(source, {}), true);
 });
 
 test("supports conditions, fields, inverted rules and last-rule precedence", () => {

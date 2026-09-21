@@ -4,6 +4,17 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+## 0.2.0-beta.8
+
+### Adicionado
+
+- `hasPermissionGroup()` em `@authyon/auth` e `@authyon/server`, com suporte a grupos `allOf` e `anyOf`.
+- `environment.tenants.disable()` no `@authyon/server` para desativar um tenant sem remover seus dados.
+
+### Alterado
+
+- Formatação dos contratos e testes de gerenciamento de credenciais.
+
 ## 0.2.0-beta.7
 
 ### Alterado

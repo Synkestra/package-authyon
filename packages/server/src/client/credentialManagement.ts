@@ -42,10 +42,13 @@ export function permissionsBody(input: CredentialPermissionsInput): { permission
   return { permissions: [...new Set(permissions)] };
 }
 
-
 export function lifetimeBody(input: { lifetimeDays?: number | null }): { lifetimeDays?: number } {
   if (input.lifetimeDays === undefined || input.lifetimeDays === null) return {};
-  if (!Number.isInteger(input.lifetimeDays) || input.lifetimeDays < 1 || input.lifetimeDays > 3650) {
+  if (
+    !Number.isInteger(input.lifetimeDays) ||
+    input.lifetimeDays < 1 ||
+    input.lifetimeDays > 3650
+  ) {
     throw new RangeError("Authyon: lifetimeDays must be between 1 and 3650.");
   }
   return { lifetimeDays: input.lifetimeDays };

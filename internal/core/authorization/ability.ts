@@ -17,6 +17,14 @@ export interface AuthyonPermissionSource {
   scope?: string | null;
 }
 
+/** A declarative group of permissions evaluated against an Authyon permission source. */
+export interface PermissionGroup {
+  /** Permissions that must all be granted. */
+  allOf?: readonly string[];
+  /** Permissions where at least one must be granted. */
+  anyOf?: readonly string[];
+}
+
 export interface AuthyonAbilityOptions {
   rules?: readonly AbilityRule[];
   /** Rules added when the source contains a matching Authyon role. */
@@ -142,6 +150,21 @@ export function hasPermission(
     : source;
 
   return createAuthyonAbility(permissionSource).can(requirement.action, requirement.subject);
+}
+
+/**
+ * Checks a permission group using Authyon's standard permission and wildcard rules.
+ * Empty or omitted groups do not add authorization requirements.
+ */
+export function hasPermissionGroup(
+  source: AuthyonPermissionSource | readonly string[],
+  group: PermissionGroup,
+): boolean {
+  const hasAll = (group.allOf ?? []).every((permission) => hasPermission(source, permission));
+  const hasAny =
+    !group.anyOf?.length || group.anyOf.some((permission) => hasPermission(source, permission));
+
+  return hasAll && hasAny;
 }
 
 function isPermissionList(

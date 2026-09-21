@@ -491,7 +491,14 @@ export class AuthyonServerClient {
           body: input,
         }),
 
-      /** DELETE /env/tenants/{tenantId} — delete a tenant. */
+      /** POST /env/tenants/{tenantId}/disable — disable without removing tenant data. */
+      disable: (tenantId: string): Promise<void> =>
+        this.request(`/env/tenants/${encodeURIComponent(tenantId)}/disable`, {
+          method: "POST",
+          envBearer: true,
+        }),
+
+      /** DELETE /env/tenants/{tenantId} — logically delete (disable) a tenant. */
       delete: (tenantId: string): Promise<void> =>
         this.request(`/env/tenants/${encodeURIComponent(tenantId)}`, {
           method: "DELETE",
