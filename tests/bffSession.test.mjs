@@ -484,6 +484,33 @@ test("remote HTTP origins stay rejected even with the local development option",
   assert.throws(() => fixture({ origin: "https://user:secret@app.example.com" }), /HTTPS origin/);
 });
 
+test("local application subdomains accept isolated HTTP sessions", async () => {
+  for (const origin of [
+    "http://portal.monkeypay.localhost:3000",
+    "http://backoffice.monkeypay.localhost:3000",
+  ]) {
+    const { bff } = fixture({ origin, allowInsecureLocalhost: true });
+    const response = await bff.login(
+      new globalThis.Request(`${origin}/api/session/login`, {
+        method: "POST",
+        headers: {
+          origin,
+          "x-authyon-csrf": "1",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ email: "alice@example.com", password: "password-secret" }),
+      }),
+    );
+
+    assert.equal(response.status, 200);
+    assert.match(
+      response.headers.get("set-cookie"),
+      /^authyon\.session=.*; Path=\/; HttpOnly; SameSite=Lax/,
+    );
+    assert.doesNotMatch(response.headers.get("set-cookie"), /; Domain=/);
+  }
+});
+
 test("session identifiers are bound to the configured application origin", async () => {
   const f = fixture();
   const { cookie } = await f.login();

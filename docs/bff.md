@@ -59,8 +59,10 @@ export const sessions = createBffSession({
 
 Memória: `createMemoryBffSessionStore()` serve para testes e desenvolvimento em
 um processo. Nunca é fallback automático do Redis. Em HTTP local, configure
-`origin: "http://localhost:3000"` e `allowInsecureLocalhost: true`. HTTP remoto
-continua proibido. Em produção, Redis precisa de controle de acesso, TLS,
+`origin: "http://localhost:3000"` ou um subdomínio de `.localhost` e
+`allowInsecureLocalhost: true`. A origem da requisição ainda precisa coincidir
+exatamente com a origem configurada; HTTP remoto continua proibido. Em produção,
+Redis precisa de controle de acesso, TLS,
 limites de memória, política de expiração e disponibilidade compatíveis com a
 aplicação. Trocar a chave de cifra invalida as sessões; rotação sem logout não
 está implementada.
