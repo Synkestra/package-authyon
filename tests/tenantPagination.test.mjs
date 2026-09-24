@@ -129,3 +129,43 @@ test("environment tenant metadata update stays on the client API", async () => {
     privateMetadata: { billingId: "cus_123" },
   });
 });
+
+test("environment tenant update forwards custom fields", async () => {
+  const requests = [];
+  const updated = {
+    id: "tenant-1",
+    slug: "acme",
+    name: "Acme LTDA",
+    customFields: JSON.stringify({ cnpj: "11.111.111/0001-11", plan: "pro" }),
+  };
+  const client = createClient({
+    envKey: "pk_test",
+    clientId: "client",
+    clientSecret: "secret",
+    httpAdapter: {
+      async request(request) {
+        requests.push(request);
+        if (request.url.endsWith("/env/oauth/token")) {
+          return globalThis.Response.json({
+            access_token: "machine",
+            token_type: "Bearer",
+            expires_in: 300,
+          });
+        }
+        return globalThis.Response.json(updated);
+      },
+    },
+  });
+
+  const result = await client.environment.tenants.update("tenant/a", {
+    name: "Acme LTDA",
+    customFields: { cnpj: "11.111.111/0001-11", plan: "pro" },
+  });
+
+  assert.deepEqual(result, updated);
+  assert.equal(requests[1].url, "https://api.authyon.com/env/tenants/tenant%2Fa");
+  assert.deepEqual(JSON.parse(requests[1].body), {
+    name: "Acme LTDA",
+    customFields: { cnpj: "11.111.111/0001-11", plan: "pro" },
+  });
+});

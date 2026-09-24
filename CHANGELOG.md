@@ -4,6 +4,10 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+## 0.2.0-beta.10
+
+### Adicionado
+
 - Entrypoint `@authyon/server/bff` com handlers Fetch para login, 2FA, leitura da sessão,
   logout e troca de organização; cookies HttpOnly, origem estrita e proteção CSRF.
 - Login e 2FA do BFF aceitam a seleção explícita de sessão lembrada, mantida somente no
@@ -15,6 +19,11 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
   TTL e associação criptográfica à chave da sessão. Sem nova dependência de runtime.
 - Guia de integração e testes de segurança/concorrência. O transporte é opt-in;
   consumidores existentes continuam usando seus contratos atuais.
+
+### Corrigido
+
+- Criação e atualização de tenants agora aceitam e encaminham `customFields` pelo
+  cliente de ambiente do `@authyon/server`.
 
 ## 0.2.0-beta.9
 

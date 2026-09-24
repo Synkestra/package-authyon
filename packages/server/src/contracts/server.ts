@@ -175,6 +175,7 @@ export interface CreateOrganizationInput {
 export interface UpdateOrganizationInput {
   name: string;
   description?: string;
+  customFields?: Record<string, unknown>;
 }
 
 export interface CreateUserInput {
