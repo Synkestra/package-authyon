@@ -12,7 +12,9 @@ const SESSION_ID = /^[a-f0-9]{64}$/;
 
 export function createBffHttp(options: BffSessionOptions) {
   const url = new URL(options.origin);
-  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  const loopback =
+    ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
+    url.hostname.endsWith(".localhost");
   const insecure = url.protocol === "http:" && loopback && options.allowInsecureLocalhost === true;
   if ((!insecure && url.protocol !== "https:") || url.origin !== options.origin) {
     throw new Error("Authyon BFF: origin must be an HTTPS origin, without path or credentials");
