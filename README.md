@@ -4,7 +4,7 @@ Monorepo com os SDKs não-oficiais do [Authyon](https://authyon.com), separados 
 
 Consulte [`docs/README.md`](./docs/README.md) para os guias práticos de cada exemplo e integração. Para Next.js, use o guia dedicado em [`docs/nextjs.md`](./docs/nextjs.md).
 
-Versão preparada: `0.2.0-beta.10`. Consulte o [`CHANGELOG.md`](./CHANGELOG.md) e o [guia de publicação beta](./docs/releaseBeta.md).
+Versão preparada: `0.2.0-beta.11`. Consulte o [`CHANGELOG.md`](./CHANGELOG.md) e o [guia de publicação beta](./docs/releaseBeta.md).
 
 | Pacote                                 | Roda em  | Chave                                                    | O que faz                                                                                 |
 | -------------------------------------- | -------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- |

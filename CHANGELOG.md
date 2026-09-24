@@ -4,6 +4,13 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+## 0.2.0-beta.11
+
+### Corrigido
+
+- O BFF aceita HTTP em subdomínios de `.localhost` somente com a exceção local explícita,
+  mantendo cookies limitados ao host e a validação de origem exata em cada requisição.
+
 ## 0.2.0-beta.10
 
 ### Adicionado
