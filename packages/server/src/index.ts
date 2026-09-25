@@ -100,8 +100,4 @@ export type {
 } from "./contracts/server";
 
 export type * from "./contracts/management";
-export {
-  PlatformScopedClient,
-  UserScopedClient,
-  WorkspaceInvitesClient,
-} from "./client/scopedManagementClient";
+export { UserScopedClient } from "./client/scopedManagementClient";

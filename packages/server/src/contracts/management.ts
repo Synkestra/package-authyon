@@ -13,14 +13,6 @@ export type CreateCredentialInput = CredentialPermissionsInput & {
   description?: string;
   lifetimeDays?: number | null;
 };
-export interface CredentialScope {
-  workspaceId: string;
-  environmentId: string;
-  tenantId?: string;
-}
-export interface TenantManagementScope extends CredentialScope {
-  tenantId: string;
-}
 export interface CredentialCreator {
   id: string | null;
   type: string;
@@ -35,64 +27,6 @@ export interface CredentialDetail extends TenantCredentialSummary {
   /** Null while active; elapsed lifetime at revocation otherwise. */
   lifetimeSeconds: number | null;
   accessTokenLifetimeSeconds: number;
-}
-export type WorkspaceRole = "admin" | "auditor";
-export interface WorkspaceMember {
-  memberId: string | null;
-  userId: string;
-  email: string;
-  name: string;
-  role: string;
-  isOwner: boolean;
-  isSelf: boolean;
-  invitedByName: string | null;
-  joinedAt: string;
-  lastLoginAt: string | null;
-}
-export interface WorkspaceInvite {
-  id: string;
-  email: string;
-  role: string;
-  invitedByName: string | null;
-  createdAt: string;
-  expiresAt: string;
-}
-export interface WorkspaceTeam {
-  workspaceId: string;
-  workspaceName: string;
-  callerRole: string;
-  canManage: boolean;
-  members: WorkspaceMember[];
-  pendingInvites: WorkspaceInvite[];
-}
-export interface InviteWorkspaceMemberInput {
-  email: string;
-  role: WorkspaceRole;
-}
-export interface WorkspaceInviteIssued {
-  inviteId: string;
-  email: string;
-  role: string;
-  /** Sensitive bearer link returned at issuance. Do not log or persist in public storage. */
-  acceptUrl: string;
-  expiresAt: string;
-}
-export interface WorkspaceInvitePreview {
-  workspaceName: string;
-  email: string;
-  role: string;
-  expiresAt: string;
-  requiresRegistration: boolean;
-}
-export interface WorkspaceInviteAccepted {
-  workspaceId: string;
-  workspaceName: string;
-  role: string;
-  accountCreated: boolean;
-}
-export interface AcceptWorkspaceInviteInput {
-  name?: string;
-  password?: string;
 }
 export interface InviteTenantMemberInput {
   email: string;

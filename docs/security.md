@@ -44,12 +44,12 @@ Cabeçalhos encaminhados são controláveis pelo cliente quando não existe um p
 - Testes de 401, 403, expiração, rotação JWKS, indisponibilidade e revogação.
 - Versão beta fixada exatamente até sua promoção para estável.
 
-## Administração de credenciais e convites
+## Administração de credenciais e membros
 
-- Use `platform(token)` com sessão de usuário da plataforma e `user(token)` com sessão do usuário do ambiente. Não armazene um contexto de usuário em singleton compartilhado entre requisições de pessoas diferentes. Callbacks permitem obter o token atualizado por operação.
+- Use `environment` com credenciais de máquina para administração do ambiente e `user(token)` com sessão do usuário final. Não armazene um contexto de usuário em singleton compartilhado entre requisições de pessoas diferentes. Callbacks permitem obter o token atualizado por operação.
 - `scopes`/`permissions` exige uma lista explícita; curingas só são enviados se solicitados pelo chamador. A API valida o escopo, a associação e as permissões efetivas, incluindo step-up quando exigido.
 - Leituras de credenciais usam uma projeção de campos permitidos. Segredos só são retornados por emissão/rotação. Não registre essas respostas nem o `acceptUrl` de convites.
-- O logger interno oculta o token no caminho de convites, valores de query, fragmentos e credenciais na URL. Adaptadores/loggers da aplicação continuam responsáveis por não registrar requests/respostas sensíveis.
+- O logger interno oculta valores de query, fragmentos e credenciais na URL. Adaptadores/loggers da aplicação continuam responsáveis por não registrar requests/respostas sensíveis.
 - O Fetch padrão usa `redirect: "error"` para impedir replay de credenciais em redirects. Use a URL HTTPS final e mantenha a mesma política em adaptadores customizados. Verificar `response.redirected` depois do envio é tarde demais, conforme a [documentação do Fetch/MDN](https://developer.mozilla.org/en-US/docs/Web/API/Response/redirected).
 - Campos privados em runtime reduzem vazamento acidental ao inspecionar/serializar o cliente, builder e cache de tokens; isso não protege um processo comprometido.
 - Essas medidas complementam a [OAuth 2.0 Security Best Current Practice (RFC 9700)](https://www.rfc-editor.org/rfc/rfc9700.html). Testes automatizados de contrato não substituem homologação com API, banco e credenciais reais.

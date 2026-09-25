@@ -122,7 +122,6 @@ function sanitizeUrl(value: string): string {
   url.username = "";
   url.password = "";
   url.hash = "";
-  url.pathname = url.pathname.replace(/(\/platform\/workspace-invites\/)[^/]+/u, "$1REDACTED");
   const queryKeys = new Set<string>();
   url.searchParams.forEach((_value, key) => queryKeys.add(key));
   url.search =

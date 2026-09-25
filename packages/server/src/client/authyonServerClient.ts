@@ -13,11 +13,7 @@ import {
   lifetimeBody,
   segment,
 } from "./credentialManagement";
-import {
-  PlatformScopedClient,
-  UserScopedClient,
-  WorkspaceInvitesClient,
-} from "./scopedManagementClient";
+import { UserScopedClient } from "./scopedManagementClient";
 import { DEFAULT_BASE_URL } from "../../../../internal/core/config/defaults";
 import { ExpiringTokenProvider } from "../../../../internal/core/auth/expiringTokenProvider";
 import {
@@ -251,19 +247,10 @@ export class AuthyonServerClient {
     return new TenantScopedClient(this, credentials);
   }
 
-  /** Uses only the supplied platform-user access token. */
-  platform(token: AccessTokenSource): PlatformScopedClient {
-    return new PlatformScopedClient((path, options) => this.http.request(path, options), token);
-  }
-
   /** Uses an end-user token; the configured environment key selects the environment. */
   user(token: AccessTokenSource): UserScopedClient {
     return new UserScopedClient((path, options) => this.request(path, options), token);
   }
-
-  readonly workspaceInvites = new WorkspaceInvitesClient((path, options) =>
-    this.http.request(path, options),
-  );
 
   // ── Environment management (users, tenants, roles, permissions, audit) ───
 

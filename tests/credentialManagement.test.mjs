@@ -45,10 +45,6 @@ function fixture(handler) {
   });
   return { client, requests };
 }
-const scope = { workspaceId: "ws/a", environmentId: "env b", tenantId: "tenant/a" };
-const base =
-  "https://api.authyon.com/platform/workspaces/ws%2Fa/environments/env%20b/tenants/tenant%2Fa/credentials";
-
 test("legacy list consumes current API pages and strips unexpected secrets", async () => {
   const { client, requests } = fixture((request) =>
     globalThis.Response.json(
@@ -114,8 +110,6 @@ test("detail exposes metadata and no secrets, including creator projection", asy
   );
   assert.deepEqual(await client.environment.tenants.credentials.get("tenant", "c/a"), expected);
   assert.match(requests[1].url, /credentials\/c%2Fa$/);
-  assert.deepEqual(await client.platform("platform-token").credentials.get(scope, "c/a"), expected);
-  assert.equal(requests[2].url, `${base}/c%2Fa`);
 });
 test("scopes is normalized into explicit wire permissions on creation", async () => {
   const { client, requests } = fixture(() =>
@@ -151,7 +145,7 @@ test("invalid scope aliases and path segments fail before network activity", asy
   }
   for (const id of ["", ".", "..", "bad\nvalue"])
     await assert.rejects(
-      async () => client.platform("token").credentials.revoke(scope, id),
+      async () => client.environment.tenants.credentials.revoke("tenant", id),
       TypeError,
     );
   for (const options of [{ skip: -1 }, { take: 101 }, { take: 0 }, { search: "x".repeat(201) }])
@@ -160,45 +154,6 @@ test("invalid scope aliases and path segments fail before network activity", asy
       RangeError,
     );
   assert.equal(requests.length, 0);
-});
-test("platform credential lifecycle uses only supplied platform token and correct routes", async () => {
-  const { client, requests } = fixture((request) =>
-    request.method === "GET"
-      ? globalThis.Response.json(page([summary]))
-      : request.url.endsWith("/rotate") || request.method === "POST"
-        ? globalThis.Response.json({ clientSecret: "new-secret" })
-        : new globalThis.Response(null, { status: 204 }),
-  );
-  let token = "platform-one";
-  const platform = client.platform(() => token);
-  await platform.credentials.list(scope, { search: "ERP", skip: 0, take: 25 });
-  token = "platform-two";
-  await platform.credentials.create(scope, { scopes: ["a:b:c"] });
-  await platform.credentials.updateScopes(scope, "c1", ["a:b:d"]);
-  await platform.credentials.rotate(scope, "c1");
-  await platform.credentials.revoke(scope, "c1");
-  assert.deepEqual(
-    requests.map((r) => r.method),
-    ["GET", "POST", "PUT", "POST", "DELETE"],
-  );
-  assert.equal(requests[2].url, `${base}/c1/permissions`);
-  assert.deepEqual(JSON.parse(requests[2].body), { permissions: ["a:b:d"] });
-  assert.equal(requests[3].url, `${base}/c1/rotate`);
-  assert.equal(requests[4].url, `${base}/c1`);
-  for (const [i, request] of requests.entries()) {
-    const headers = new globalThis.Headers(request.headers);
-    assert.equal(
-      headers.get("authorization"),
-      i === 0 ? "Bearer platform-one" : "Bearer platform-two",
-    );
-    assert.equal(headers.get("x-authyon-environment"), null);
-  }
-  assert.ok(!JSON.stringify(platform).includes("platform-two"));
-  await platform.credentials.revoke({ workspaceId: "ws", environmentId: "env" }, "c1");
-  assert.equal(
-    requests.at(-1).url,
-    "https://api.authyon.com/platform/workspaces/ws/environments/env/credentials/c1",
-  );
 });
 test("environment tenant credential lifecycle supports rotate and revoke", async () => {
   const { client, requests } = fixture((request) =>
@@ -237,7 +192,7 @@ test("environment tenant credential lifecycle supports rotate and revoke", async
     assert.equal(headers.get("x-authyon-environment"), "pk_test");
   }
 });
-test("authorization and step-up failures never retry or fall back to machine credentials", async () => {
+test("environment authorization failures are not retried", async () => {
   const { client, requests } = fixture(() =>
     globalThis.Response.json(
       { code: "auth.step_up_required", title: "Step up required" },
@@ -245,12 +200,10 @@ test("authorization and step-up failures never retry or fall back to machine cre
     ),
   );
   await assert.rejects(
-    client.platform("platform-token").credentials.revoke(scope, "c1"),
+    client.environment.tenants.credentials.revoke("tenant", "c1"),
     (error) => error instanceof AuthyonError && error.status === 403,
   );
-  assert.equal(requests.length, 1);
-  await assert.rejects(client.platform("").credentials.revoke(scope, "c1"), TypeError);
-  assert.equal(requests.length, 1);
+  assert.equal(requests.length, 2);
 });
 
 test("builder serialization does not expose environment secrets", () => {

@@ -298,73 +298,34 @@ const issued = await authyon.environment.tenants.credentials.create(tenantId, {
 });
 // Armazene issued.clientSecret no gerenciador de segredos. Não registre a resposta.
 
-// Token de um usuário da plataforma. Pode ser um callback assíncrono que
-// consulta a sessão atual a cada operação, sem compartilhar tokens entre usuários.
-const platform = authyon.platform(() => getCurrentPlatformAccessToken());
-const scope = { workspaceId, environmentId, tenantId };
-await platform.credentials.list(scope, { search: "ERP", skip: 0, take: 25 });
-await platform.credentials.get(scope, credentialId);
-await platform.credentials.create(scope, {
+await authyon.environment.tenants.credentials.listPage(tenantId, {
+  search: "ERP",
+  skip: 0,
+  take: 25,
+});
+await authyon.environment.tenants.credentials.get(tenantId, credentialId);
+await authyon.environment.tenants.credentials.create(tenantId, {
   description: "Leitura",
   permissions: ["monkeypay:transactions:read"],
 });
-await platform.credentials.updateScopes(scope, credentialId, ["monkeypay:transactions:read"]);
-await platform.credentials.updatePermissions(scope, credentialId, {
+await authyon.environment.tenants.credentials.updateScopes(tenantId, credentialId, [
+  "monkeypay:transactions:read",
+]);
+await authyon.environment.tenants.credentials.updatePermissions(tenantId, credentialId, {
   permissions: ["monkeypay:transactions:read"],
 });
-const rotated = await platform.credentials.rotate(scope, credentialId);
-await platform.credentials.revoke(scope, credentialId);
+const rotated = await authyon.environment.tenants.credentials.rotate(tenantId, credentialId);
+await authyon.environment.tenants.credentials.revoke(tenantId, credentialId);
 ```
 
-Omita `tenantId` de `scope` para gerenciar credenciais do ambiente. Criação e
-rotação retornam o segredo uma única vez. Alterar permissões substitui a lista
+Criação e rotação retornam o segredo uma única vez. Alterar permissões substitui a lista
 completa. A concessão OAuth continua recebendo apenas `clientId`/`clientSecret`;
 `scopes` não é um parâmetro de redução de acesso na troca de token.
 
-Os endpoints `/env` oferecem criação, listagem e detalhe de credenciais do
-tenant. Atualização, rotação e revogação usam os endpoints `/platform` com
-**token de usuário da plataforma**, sem fallback para credenciais de máquina.
-Se a API exigir `auth.step_up_required`, solicite confirmação de senha na sua
-aplicação e chame explicitamente `platform.auth.stepUp(currentPassword)` antes
-de tentar a operação novamente. O SDK não repete mutações automaticamente.
+Todas as operações usam os endpoints externos `/env` com a credencial de
+ambiente configurada no cliente. O SDK não repete mutações automaticamente.
 
-## Convites e remoção de acesso
-
-### Workspace
-
-```ts
-const team = await platform.workspaces.team(workspaceId);
-const invite = await platform.workspaces.members.invite(workspaceId, {
-  email: "pessoa@example.com",
-  role: "auditor", // ou "admin", sempre explícito
-});
-// invite.acceptUrl é sensível: entregue somente à pessoa convidada.
-await platform.workspaces.invites.revoke(workspaceId, invite.inviteId);
-await platform.workspaces.members.changeRole(workspaceId, memberId, "auditor");
-await platform.workspaces.members.remove(workspaceId, memberId);
-```
-
-`memberId` vem de `team.members`, e não é `userId`. O proprietário tem
-`memberId: null`; a API protege proprietário, acesso próprio e permissões de
-administração. `workspaces.invites.create` é um alias para `members.invite`.
-Convites pendentes ficam em `team.pendingInvites`; revogar o convite invalida o
-link. Para retirar acesso após aceite, remova o membro.
-
-A pessoa convidada pode consultar/aceitar o convite por uma rota server-side:
-
-```ts
-const preview = await authyon.workspaceInvites.preview(invitationToken);
-await authyon.workspaceInvites.accept(invitationToken, {
-  name: "Pessoa",
-  password: registrationPassword,
-});
-```
-
-Esses métodos não enviam token de usuário nem credenciais de ambiente. Nome e
-senha são necessários quando `preview.requiresRegistration` for verdadeiro;
-para uma conta existente, use `accept(invitationToken)`.
-
-### Tenant
+## Membros do tenant
 
 ```ts
 const user = authyon.user(() => getCurrentUserAccessToken());
@@ -379,9 +340,6 @@ await user.tenants.members.remove(tenantId, userId);
 await authyon.environment.tenants.members.add(tenantId, userId, ["reader"]);
 await authyon.environment.tenants.members.remove(tenantId, userId);
 // Os métodos tenant(credentials).members.add/remove existentes continuam disponíveis.
-// Administração com sessão da plataforma:
-await platform.tenants.members.add(scope, userId, ["reader"]);
-await platform.tenants.members.remove(scope, userId);
 ```
 
 Configure `envKey` para `user()`. O convite de tenant associa um usuário já
@@ -392,8 +350,8 @@ atendendo esse fluxo. Nunca importe `@authyon/server` no browser.
 
 ## Compatibilidade e segurança do transporte
 
-Os métodos anteriores permanecem disponíveis. As novas chamadas exigem os
-endpoints atuais da API e a migração `ClientCredentialMetadata` para metadados
+As chamadas exigem os endpoints externos atuais da API e a migração
+`ClientCredentialMetadata` para metadados
 persistidos. O SDK não altera o banco nem publica uma versão automaticamente.
 
 O adaptador Fetch agora rejeita redirects para evitar reenviar tokens/segredos;

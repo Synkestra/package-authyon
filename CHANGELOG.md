@@ -4,6 +4,20 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+## 0.2.0-beta.13
+
+### Alterado
+
+- `@authyon/server` usa somente os endpoints externos `/env`, `/tenant` e `/auth`;
+  foram removidos `platform()`, `workspaceInvites` e os contratos associados às rotas
+  reservadas para a UI do Authyon.
+- Administração de credenciais e membros de tenant permanece disponível por
+  `environment.tenants.*`, autenticada com credenciais de ambiente.
+
+### Corrigido
+
+- Criação e atualização de tenants encaminham `customFields` para os endpoints `/env`.
+
 ## 0.2.0-beta.12
 
 ### Adicionado
