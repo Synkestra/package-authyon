@@ -182,6 +182,8 @@ export interface CreateUserInput {
   email: string;
   username: string;
   password: string;
+  /** Values for custom user fields configured in the environment. */
+  customFields?: Record<string, unknown>;
   emailConfirmed?: boolean;
   roles?: string[];
   /** Tenants (organizations) to add the user to on creation. */

@@ -4,6 +4,13 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+## 0.2.0-beta.12
+
+### Adicionado
+
+- `customFields` opcional nos contratos de cadastro de usuário de `@authyon/auth` e
+  `@authyon/server`, permitindo enviar os campos personalizados configurados no ambiente.
+
 ## 0.2.0-beta.11
 
 ### Corrigido

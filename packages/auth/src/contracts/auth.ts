@@ -83,6 +83,8 @@ export interface RegisterInput {
   email: string;
   username?: string;
   password: string;
+  /** Values for custom user fields configured in the environment. */
+  customFields?: Record<string, unknown>;
 }
 
 export interface LoginInput {
