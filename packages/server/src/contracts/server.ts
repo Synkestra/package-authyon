@@ -1,3 +1,4 @@
+import type { SecurityMethods } from "../../../../internal/core/contracts/security";
 /** GET/POST /env/tenants — confirmed against the live API. */
 export interface Organization {
   id: string;
@@ -35,6 +36,8 @@ export interface User {
   /** Environment-level roles from the database-validated user profile. */
   roles?: string[];
   permissions?: string[];
+  /** Security methods active on the account (authenticator, email code, passkey, SSO…). */
+  security?: SecurityMethods;
 }
 
 export interface RoleGrant {

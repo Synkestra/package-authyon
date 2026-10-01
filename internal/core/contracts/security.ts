@@ -1,3 +1,25 @@
+/**
+ * Security methods active on the user's account, as returned in the
+ * `security` field of `GET /auth/me` and `POST /auth/validate`.
+ */
+export interface SecurityMethods {
+  /** A password is set (false for accounts created only through SSO or magic link). */
+  password: boolean;
+  /** Authenticator app (TOTP one-time codes). */
+  authenticator: boolean;
+  /** One-time codes sent by email. */
+  emailCode: boolean;
+  /** At least one passkey registered. */
+  passkey: boolean;
+  passkeyCount: number;
+  /** Unused recovery codes left. */
+  recoveryCodes: number;
+  /** SSO providers linked to the account, e.g. `["google", "github"]`. */
+  sso: string[];
+  /** Any second factor is active (authenticator, email code or passkey). */
+  twoFactor: boolean;
+}
+
 /** Lifecycle of an approval. */
 export type ApprovalStatus = "pending" | "approved" | "denied" | "consumed" | "expired";
 

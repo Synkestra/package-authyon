@@ -10,6 +10,7 @@ export type {
   ApprovalStatus,
   ApprovalWebAuthnOptions,
   ConfirmApprovalInput,
+  SecurityMethods,
 } from "../../../../internal/core/contracts/security";
 
 /** `security.approvals.create()` — something awaiting the customer's approval. */

@@ -204,3 +204,44 @@ test("server user scope exposes security.approvals for BFFs", async () => {
   assert.equal(requests[0].url, "https://api.authyon.com/auth/authorizations/auth-1");
   assert.equal(header(requests[0], "authorization"), "Bearer customer-token");
 });
+
+const methods = {
+  password: true,
+  authenticator: true,
+  emailCode: false,
+  passkey: true,
+  passkeyCount: 2,
+  recoveryCodes: 8,
+  sso: ["google"],
+  twoFactor: true,
+};
+
+test("security.methods() reads the active methods from /auth/me", async () => {
+  const { client, requests } = authFixture(() =>
+    globalThis.Response.json({ id: "u1", email: "a@b.c", security: methods }),
+  );
+  assert.deepEqual(await client.security.methods(), methods);
+  assert.equal(requests[0].url, "https://api.authyon.com/auth/me");
+  assert.equal(header(requests[0], "authorization"), "Bearer customer-token");
+  assert.deepEqual((await client.user.me()).security, methods);
+});
+
+test("security.methods() reports nothing active when the API omits the field", async () => {
+  const { client } = authFixture(() => globalThis.Response.json({ id: "u1", email: "a@b.c" }));
+  const result = await client.security.methods();
+  assert.equal(result.twoFactor, false);
+  assert.deepEqual(result.sso, []);
+});
+
+test("server validate and user scope expose the security methods", async () => {
+  const { client } = serverFixture((request) =>
+    request.url.endsWith("/auth/validate")
+      ? globalThis.Response.json({
+          valid: true,
+          profile: { id: "u1", email: "a@b.c", security: methods },
+        })
+      : globalThis.Response.json({ id: "u1", email: "a@b.c", security: methods }),
+  );
+  assert.deepEqual((await client.validate("token")).user.security, methods);
+  assert.deepEqual(await client.user("customer-token").security.methods(), methods);
+});

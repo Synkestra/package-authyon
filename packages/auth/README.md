@@ -291,6 +291,7 @@ await authyon.security.approvals.confirm(approvalId, {
 
 | Método                                   | Endpoint                                          |
 | ---------------------------------------- | ------------------------------------------------- |
+| `security.methods()`                     | `GET /auth/me` (campo `security`)                 |
 | `security.approvals.get(id)`             | `GET /auth/authorizations/{id}`                   |
 | `security.approvals.webauthnOptions(id)` | `POST /auth/authorizations/{id}/webauthn/options` |
 | `security.approvals.confirm(id, input?)` | `POST /auth/authorizations/{id}/confirm`          |

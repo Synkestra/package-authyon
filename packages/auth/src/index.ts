@@ -52,6 +52,7 @@ export type {
   ApprovalStatus,
   ApprovalWebAuthnOptions,
   ConfirmApprovalInput,
+  SecurityMethods,
   AuthStateListener,
   AuthState,
   AuthenticatorSetup,

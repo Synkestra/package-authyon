@@ -2,6 +2,7 @@ import type {
   Approval,
   ApprovalWebAuthnOptions,
   ConfirmApprovalInput,
+  SecurityMethods,
 } from "../contracts/security";
 import type { JsonRequestOptions } from "../http/jsonHttpClient";
 
@@ -32,6 +33,11 @@ export interface SubjectApprovals {
 
 /** The `security` namespace an end-user client exposes. */
 export interface SubjectSecurity {
+  /**
+   * GET /auth/me — which security methods the signed-in user has active
+   * (password, authenticator, email code, passkeys, recovery codes, SSO).
+   */
+  methods(): Promise<SecurityMethods>;
   /** Approve or reject what your backend asked the customer to confirm. */
   readonly approvals: SubjectApprovals;
 }
@@ -42,8 +48,23 @@ function path(id: string, suffix = ""): string {
   return `/auth/authorizations/${encodeURIComponent(id)}${suffix}`;
 }
 
+const NO_METHODS: SecurityMethods = {
+  password: false,
+  authenticator: false,
+  emailCode: false,
+  passkey: false,
+  passkeyCount: 0,
+  recoveryCodes: 0,
+  sso: [],
+  twoFactor: false,
+};
+
 export function subjectSecurity(request: SubjectRequest): SubjectSecurity {
   return {
+    methods: async () => {
+      const me = await request<{ security?: SecurityMethods | null }>("/auth/me");
+      return me.security ?? NO_METHODS;
+    },
     approvals: {
       get: (id) => request(path(id)),
       webauthnOptions: (id) => request(path(id, "/webauthn/options"), { method: "POST" }),

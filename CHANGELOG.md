@@ -8,7 +8,10 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ### Adicionado
 
-- Namespace `security` reunindo OTP e aprovações:
+- Namespace `security` reunindo métodos ativos, OTP e aprovações:
+  - `security.methods()` (`@authyon/auth` e `server.user(token)`) e o campo `security` em
+    `user.me()` e `validate()`: quais métodos o usuário tem ativos — senha, app
+    autenticador, código por e-mail, passkeys, códigos de recuperação e provedores SSO.
   - `@authyon/server`: `security.otp.check(userId, code)` valida o código do app
     autenticador e devolve `{ valid }` (código errado não lança erro). Cada código vale
     uma vez; 3 erros seguidos deslogam o usuário de todos os dispositivos
@@ -19,7 +22,7 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
   - `@authyon/auth` e `server.user(token)`: `security.approvals` (`get`,
     `webauthnOptions`, `confirm`, `reject`) — o cliente confirma com código do
     autenticador ou passkey.
-  - Tipos `OtpCheckResult`, `Approval`, `CreateApprovalInput`, `ConsumedApproval`,
+  - Tipos `SecurityMethods`, `OtpCheckResult`, `Approval`, `CreateApprovalInput`, `ConsumedApproval`,
     `ConfirmApprovalInput`, `ApprovalWebAuthnOptions`, `ApprovalPayload`,
     `ApprovalAssurance` e `ApprovalStatus`. Guia em `docs/security-otp-approvals.md`.
 - `ErrorCodes`: `InvalidApprovalState`, `PayloadMismatch`, `ApprovalNotConsumable`,

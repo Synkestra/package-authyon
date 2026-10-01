@@ -7,16 +7,17 @@ dados do cartão. Disponível a partir de `0.2.0-beta.15`.
 ```text
 @authyon/server (seu backend)                @authyon/auth (cliente) · server.user(token)
 authyon.security                             authyon.security
-├── otp                                      └── approvals
-│   └── check(userId, code)                      ├── get(id)
-└── approvals                                    ├── webauthnOptions(id)
-    ├── create({ subjectId, payload })           ├── confirm(id, { method, code })
-    ├── get(id)                                  └── reject(id)
-    └── consume(id, payload?)
+├── otp                                      ├── methods()
+│   └── check(userId, code)                  └── approvals
+└── approvals                                    ├── get(id)
+    ├── create({ subjectId, payload })           ├── webauthnOptions(id)
+    ├── get(id)                                  ├── confirm(id, { method, code })
+    └── consume(id, payload?)                    └── reject(id)
 ```
 
 | Recurso                                      | Quando usar                                                                 |
 | -------------------------------------------- | --------------------------------------------------------------------------- |
+| [`security.methods`](#securitymethods)     | Saber quais métodos de segurança o usuário tem ativos (OTP, e-mail, passkey, SSO). |
 | [`security.otp`](#securityotp)               | Você só quer saber se o código do app autenticador está certo. Uma chamada. |
 | [`security.approvals`](#securityapprovals)   | A aprovação precisa ficar presa a um conteúdo (valor, destino…) e valer uma vez. |
 
@@ -38,6 +39,37 @@ const authyon = createClient({
   clientSecret: process.env.AUTHYON_CLIENT_SECRET,
 });
 ```
+
+## `security.methods`
+
+Quais métodos de segurança a conta tem ativos. Vem no campo `security` do `GET /auth/me`
+(`authyon.user.me()`) e do `POST /auth/validate` (`authyon.validate(token)` no backend);
+`security.methods()` é o atalho que devolve só esse objeto.
+
+```ts
+const methods = await authyon.security.methods(); // @authyon/auth, usuário logado
+// ou no backend: (await authyon.validate(token)).user?.security
+
+if (!methods.authenticator) {
+  // peça para o cliente ativar o app autenticador antes de liberar o Pix
+}
+```
+
+```jsonc
+{
+  "password": true, // tem senha (false em contas criadas só por SSO ou magic link)
+  "authenticator": true, // app autenticador (OTP)
+  "emailCode": false, // código por e-mail
+  "passkey": true,
+  "passkeyCount": 2,
+  "recoveryCodes": 8, // códigos de recuperação ainda não usados
+  "sso": ["google"], // provedores SSO vinculados
+  "twoFactor": true // algum segundo fator ativo (autenticador, e-mail ou passkey)
+}
+```
+
+Os valores mudam na hora quando o usuário ativa ou desativa um método, cadastra ou remove
+passkey, vincula ou desvincula um SSO ou usa um código de recuperação.
 
 ## `security.otp`
 
@@ -233,6 +265,7 @@ Só aprovações `approved` e dentro do prazo podem ser consumidas, e uma única
 
 | Tipo                      | Onde                                                     |
 | ------------------------- | -------------------------------------------------------- |
+| `SecurityMethods`         | retorno de `security.methods` e campo `security` do perfil |
 | `OtpCheckResult`          | retorno de `security.otp.check`                          |
 | `Approval`                | retorno de `create`, `get`, `confirm` e `reject`         |
 | `CreateApprovalInput`     | entrada de `security.approvals.create`                   |

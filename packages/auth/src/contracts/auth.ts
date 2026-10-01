@@ -1,3 +1,4 @@
+import type { SecurityMethods } from "../../../../internal/core/contracts/security";
 /**
  * Organization membership (the Authyon API calls this a "tenant" on the
  * wire — the SDK exposes it as "organization").
@@ -54,6 +55,8 @@ export interface User {
   activeOrganization?: Organization | null;
   /** Actions the user must complete before continuing (e.g. confirm e-mail). */
   pendencies?: string[];
+  /** Security methods active on the account (authenticator, email code, passkey, SSO…). */
+  security?: SecurityMethods;
 }
 
 /** Token pair issued by login / refresh / tenant switch. */
@@ -266,4 +269,5 @@ export type {
   ApprovalStatus,
   ApprovalWebAuthnOptions,
   ConfirmApprovalInput,
+  SecurityMethods,
 } from "../../../../internal/core/contracts/security";
