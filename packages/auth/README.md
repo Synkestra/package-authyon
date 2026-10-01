@@ -273,6 +273,27 @@ Métodos de sessão/auth ficam soltos no client; os que giram em torno de um rec
 | `sso.startUrl(provider, params)` | monta a URL de `GET /auth/sso/{provider}/start` (não faz a chamada — navegue até ela) |
 | `sso.exchange(code)`             | `POST /auth/sso/exchange`                                                             |
 
+### `authyon.financialAuthorizations` (confirmação de transações)
+
+O cliente aprova uma transação criada pelo seu backend com o código do app autenticador
+ou a passkey. Guia completo: [`docs/financialStepUp.md`](../../docs/financialStepUp.md).
+
+```ts
+const pending = await authyon.financialAuthorizations.get(authorizationId);
+// mostre pending.amount, pending.currency e pending.beneficiary ao cliente
+await authyon.financialAuthorizations.confirm(authorizationId, {
+  method: "authenticator",
+  code: "123456",
+});
+```
+
+| Método                                        | Endpoint                                          |
+| --------------------------------------------- | ------------------------------------------------- |
+| `financialAuthorizations.get(id)`             | `GET /auth/authorizations/{id}`                   |
+| `financialAuthorizations.webauthnOptions(id)` | `POST /auth/authorizations/{id}/webauthn/options` |
+| `financialAuthorizations.confirm(id, input?)` | `POST /auth/authorizations/{id}/confirm`          |
+| `financialAuthorizations.reject(id)`          | `POST /auth/authorizations/{id}/reject`           |
+
 ## Invalidação de token
 
 - **Sessão atual**: `logout()` revoga o refresh token atual; `logout({ everywhere: true })` revoga todos os refresh tokens do usuário.

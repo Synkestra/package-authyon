@@ -120,7 +120,7 @@ await authyon.environment.audit.list({ take: 50 });
 
 Veja [`examples/organizationMembership.ts`](./examples/organizationMembership.ts) para o fluxo completo, incluindo as rotas de backend que o `@authyon/auth` chamaria.
 
-Namespaces disponíveis: `environment.users`, `environment.tenants` (com `.members` e `.roles` aninhados), `environment.roles`, `environment.permissions`, `environment.audit`.
+Namespaces disponíveis: `environment.users`, `environment.tenants` (com `.members` e `.roles` aninhados), `environment.roles`, `environment.permissions`, `environment.audit`, `environment.financialAuthorizations`.
 
 ## Autorização local
 
@@ -190,6 +190,35 @@ Chamadas server-side propagam `clientIp` em `X-Forwarded-For`. O middleware Expr
 ```ts
 await authyon.validate(token, { clientIp: "203.0.113.10" });
 ```
+
+## Confirmação de transações financeiras
+
+Exige uma credencial de ambiente com o escopo `authyon:financial:authorize`. Guia
+completo, incluindo o lado do cliente: [`docs/financialStepUp.md`](../../docs/financialStepUp.md).
+
+```ts
+const transaction = {
+  action: "pix.transfer",
+  amount: 150.5,
+  currency: "BRL",
+  beneficiary: "Maria Silva",
+};
+
+// 1. Antes de executar, peça a aprovação do cliente.
+const { id } = await authyon.environment.financialAuthorizations.create({
+  ...transaction,
+  subjectId: customerId,
+  idempotencyKey: orderId,
+});
+
+// 2. O cliente confirma com o código (@authyon/auth → financialAuthorizations.confirm).
+
+// 3. Consuma com a mesma transação e só então execute.
+const { assurance } = await authyon.environment.financialAuthorizations.consume(id, transaction);
+```
+
+Se o seu servidor guarda o token do cliente (BFF), o lado do cliente também está em
+`authyon.user(accessToken).financialAuthorizations`.
 
 ## Administração por tenant (`tenant()`)
 

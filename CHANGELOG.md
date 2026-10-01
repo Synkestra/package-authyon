@@ -4,6 +4,27 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+## 0.2.0-beta.14
+
+### Adicionado
+
+- Confirmação de transações financeiras (step-up): `environment.financialAuthorizations`
+  (`create`, `get`, `consume`) no `@authyon/server` e `financialAuthorizations`
+  (`get`, `webauthnOptions`, `confirm`, `reject`) no `@authyon/auth` e em
+  `server.user(token)`. O cliente aprova com o código do app autenticador ou passkey,
+  amarrado à transação, com até 5 tentativas. Guia em `docs/financialStepUp.md`.
+- `ErrorCodes` para o fluxo: `StepUpRequired`, `InvalidSecondFactorCode`,
+  `VerificationAttemptsExhausted`, `MethodNotEnrolled`, `InvalidAuthorizationState`,
+  `TransactionMismatch`, `AuthorizationNotConsumable` e `IdempotencyConflict`.
+- `AuthyonError.extensions` expõe campos extras do corpo de erro, como
+  `attemptsRemaining` e `requiredMethods`. Não entram em `toJSON()`.
+
+### Alterado
+
+- `AuthyonError` também lê erros no formato OAuth (`error`/`error_description`) como
+  `code`/`detail`; antes esses erros chegavam como `unknown`.
+- `step_up_required` é classificado como `authentication` (ação `reauthenticate`).
+
 ## 0.2.0-beta.13
 
 ### Alterado

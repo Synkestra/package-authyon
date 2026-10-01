@@ -3,6 +3,7 @@ export { AuthyonClientBuilder } from "./client/authyonClientBuilder";
 export { AuthyonError, ErrorCodes } from "./errors";
 export type {
   AuthyonErrorAction,
+  AuthyonErrorBody,
   AuthyonErrorCategory,
   AuthyonErrorInterpretation,
   KnownErrorCode,
@@ -44,6 +45,12 @@ export type {
 export type {
   Activity,
   AuthEvent,
+  ConfirmFinancialAuthorizationInput,
+  FinancialAssurance,
+  FinancialAuthorization,
+  FinancialAuthorizationStatus,
+  FinancialTransaction,
+  FinancialWebAuthnOptions,
   AuthStateListener,
   AuthState,
   AuthenticatorSetup,

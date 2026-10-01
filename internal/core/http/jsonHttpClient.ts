@@ -1,4 +1,4 @@
-import { AuthyonError } from "../errors/authyonError";
+import { AuthyonError, type AuthyonErrorBody } from "../errors/authyonError";
 import { appendQuery, type QueryParams } from "./query";
 import { responseMetadata, SharedTransportError, type createSharedTransport } from "./transport";
 
@@ -32,9 +32,11 @@ export class JsonHttpClient {
 
   async parse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      let body: Record<string, string> = {};
+      let body: AuthyonErrorBody = {};
       try {
-        body = await response.json();
+        const parsed: unknown = await response.json();
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+          body = parsed as AuthyonErrorBody;
       } catch {
         // Non-JSON error response; status and metadata still remain available.
       }

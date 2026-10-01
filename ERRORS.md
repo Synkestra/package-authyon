@@ -16,6 +16,23 @@ Este catálogo reúne todos os códigos encontrados no SDK, exemplos e documenta
 | `PasswordPwned`    | `user.password_pwned`    | `validation`     | escolher senha não vazada                |
 | `RateLimited`      | `rate_limited`           | `rate_limit`     | aguardar `retryAfter` e repetir          |
 
+## Transações financeiras (step-up)
+
+A API envia estes erros no formato OAuth (`error`/`error_description`); o SDK os expõe
+como `code`/`detail`. Campos extras ficam em `AuthyonError.extensions`. Veja o
+[guia de step-up](./docs/financialStepUp.md).
+
+| Constante                       | Código                            | Categoria        | Ação sugerida                                     |
+| ------------------------------- | --------------------------------- | ---------------- | ------------------------------------------------- |
+| `StepUpRequired`                | `step_up_required`                | `authentication` | pedir o código do autenticador ou a passkey       |
+| `InvalidSecondFactorCode`       | `invalid_code`                    | `validation`     | pedir de novo; ver `extensions.attemptsRemaining` |
+| `VerificationAttemptsExhausted` | `verification_attempts_exhausted` | `conflict`       | criar nova autorização                            |
+| `MethodNotEnrolled`             | `method_not_enrolled`             | `validation`     | cadastrar autenticador ou passkey                 |
+| `InvalidAuthorizationState`     | `invalid_authorization_state`     | `conflict`       | ler `extensions.status`                           |
+| `TransactionMismatch`           | `transaction_mismatch`            | `validation`     | não executar a operação                           |
+| `AuthorizationNotConsumable`    | `authorization_not_consumable`    | `conflict`       | não executar a operação                           |
+| `IdempotencyConflict`           | `idempotency_conflict`            | `conflict`       | usar outra `Idempotency-Key`                      |
+
 ## Fallback por status HTTP
 
 | Status       | Categoria        | Ação                                          |

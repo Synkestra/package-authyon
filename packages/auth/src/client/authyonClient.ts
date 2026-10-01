@@ -1,3 +1,7 @@
+import {
+  subjectFinancialAuthorizations,
+  type SubjectFinancialAuthorizations,
+} from "../../../../internal/core/financial/subjectFinancialAuthorizations";
 import { AuthyonError, ErrorCodes } from "../errors";
 import { createDefaultStorage } from "../session/storage";
 import {
@@ -639,6 +643,18 @@ export class AuthyonClient {
         }),
     },
   };
+
+  // ── Financial step-up (customer side) ────────────────────────────────────
+
+  /**
+   * Transaction-bound approvals created by your backend
+   * (`@authyon/server` → `environment.financialAuthorizations.create`).
+   * Show the transaction with `get()`, then `confirm()` with the customer's
+   * authenticator code or passkey, or `reject()`.
+   */
+  readonly financialAuthorizations: SubjectFinancialAuthorizations = subjectFinancialAuthorizations(
+    (path, options) => this.request(path, { ...options, bearer: true }),
+  );
 
   // ── Token verification ───────────────────────────────────────────────────
 

@@ -33,6 +33,7 @@ Esta pasta reúne a referência gerada pelo TypeDoc e a documentação prática 
 - [Gerenciamento de organizações](./examples/organizationMembership.md)
 - [Express](./examples/express.md)
 - [Abilities e permissões](./examples/authorization.md)
+- [Confirmação de transações financeiras (step-up com OTP/passkey)](./financialStepUp.md)
 
 ## Infraestrutura
 

@@ -259,3 +259,11 @@ export type {
   Paged,
   PaginationOptions,
 } from "../../../../internal/core/contracts/common";
+export type {
+  ConfirmFinancialAuthorizationInput,
+  FinancialAssurance,
+  FinancialAuthorization,
+  FinancialAuthorizationStatus,
+  FinancialTransaction,
+  FinancialWebAuthnOptions,
+} from "../../../../internal/core/contracts/financial";

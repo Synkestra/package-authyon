@@ -10,6 +10,14 @@ export const ErrorCodes = {
   PasswordWeak: "user.password_weak",
   PasswordPwned: "user.password_pwned",
   RateLimited: "rate_limited",
+  StepUpRequired: "step_up_required",
+  InvalidSecondFactorCode: "invalid_code",
+  VerificationAttemptsExhausted: "verification_attempts_exhausted",
+  MethodNotEnrolled: "method_not_enrolled",
+  InvalidAuthorizationState: "invalid_authorization_state",
+  TransactionMismatch: "transaction_mismatch",
+  AuthorizationNotConsumable: "authorization_not_consumable",
+  IdempotencyConflict: "idempotency_conflict",
 } as const;
 
 export type KnownErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
@@ -41,6 +49,26 @@ export interface AuthyonErrorInterpretation {
   requestId?: string;
 }
 
+const STANDARD_ERROR_FIELDS = new Set([
+  "type",
+  "status",
+  "title",
+  "detail",
+  "code",
+  "error",
+  "error_description",
+]);
+
+/** Error body as sent by the API: RFC 7807, or OAuth-style `error`/`error_description`. */
+export type AuthyonErrorBody = Partial<{
+  title: string;
+  detail: string;
+  code: string;
+  error: string;
+  error_description: string;
+}> &
+  Record<string, unknown>;
+
 /** Shared RFC 7807 error implementation used by both public SDKs. */
 export class AuthyonError extends Error {
   readonly status: number;
@@ -50,18 +78,28 @@ export class AuthyonError extends Error {
   readonly requestId?: string;
   readonly retryAfter?: number;
   readonly cause?: unknown;
+  /**
+   * Extra fields from the error body beyond code/title/detail — e.g.
+   * `attemptsRemaining` on `invalid_code` or `requiredMethods` on
+   * `step_up_required`. Not included in {@link toJSON}.
+   */
+  readonly extensions: Readonly<Record<string, unknown>>;
 
   constructor(
     status: number,
-    body: Partial<{ title: string; detail: string; code: string }>,
+    body: AuthyonErrorBody,
     options: { requestId?: string; retryAfter?: number; cause?: unknown } = {},
   ) {
-    super(body.detail ?? body.title ?? `Authyon request failed with status ${status}`);
+    const detail = body.detail ?? body.error_description;
+    super(detail ?? body.title ?? `Authyon request failed with status ${status}`);
     this.name = "AuthyonError";
     this.status = status;
-    this.code = body.code ?? "unknown";
+    this.code = body.code ?? body.error ?? "unknown";
     this.title = body.title ?? "Error";
-    this.detail = body.detail;
+    this.detail = detail;
+    this.extensions = Object.fromEntries(
+      Object.entries(body).filter(([key]) => !STANDARD_ERROR_FIELDS.has(key)),
+    );
     this.requestId = options.requestId;
     this.retryAfter = options.retryAfter;
     this.cause = options.cause;
@@ -120,6 +158,7 @@ export class AuthyonError extends Error {
 
 function classifyError(status: number, code: string): AuthyonErrorCategory {
   if (code === ErrorCodes.NetworkError) return "network";
+  if (code === ErrorCodes.StepUpRequired) return "authentication";
   if (code === ErrorCodes.Timeout || status === 408) return "timeout";
   if (code === ErrorCodes.RateLimited || status === 429) return "rate_limit";
   if (code === ErrorCodes.EmailTaken || status === 409) return "conflict";

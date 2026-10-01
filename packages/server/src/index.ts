@@ -7,6 +7,7 @@ export { AuthyonServerClientBuilder } from "./client/authyonServerClientBuilder"
 export { AuthyonError, ErrorCodes } from "./errors";
 export type {
   AuthyonErrorAction,
+  AuthyonErrorBody,
   AuthyonErrorCategory,
   AuthyonErrorInterpretation,
   KnownErrorCode,
@@ -100,4 +101,5 @@ export type {
 } from "./contracts/server";
 
 export type * from "./contracts/management";
+export type * from "./contracts/financial";
 export { UserScopedClient } from "./client/scopedManagementClient";

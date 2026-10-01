@@ -7,6 +7,7 @@
 export { AuthyonError, ErrorCodes } from "../../../../internal/core/errors/authyonError";
 export type {
   AuthyonErrorAction,
+  AuthyonErrorBody,
   AuthyonErrorCategory,
   AuthyonErrorInterpretation,
   KnownErrorCode,

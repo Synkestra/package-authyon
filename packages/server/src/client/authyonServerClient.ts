@@ -14,6 +14,12 @@ import {
   segment,
 } from "./credentialManagement";
 import { UserScopedClient } from "./scopedManagementClient";
+import type {
+  ConsumedFinancialAuthorization,
+  CreateFinancialAuthorizationInput,
+  FinancialAuthorization,
+  FinancialTransaction,
+} from "../contracts/financial";
 import { DEFAULT_BASE_URL } from "../../../../internal/core/config/defaults";
 import { ExpiringTokenProvider } from "../../../../internal/core/auth/expiringTokenProvider";
 import {
@@ -636,6 +642,49 @@ export class AuthyonServerClient {
       /** GET /permissions/reserved — reserved permission names you can't redefine. */
       reserved: (): Promise<ReservedPermissions> =>
         this.request("/permissions/reserved", { envBearer: true }),
+    },
+
+    /**
+     * Transaction-bound step-up for financial operations. The environment
+     * credential needs the `authyon:financial:authorize` scope.
+     *
+     * 1. `create()` the authorization for the transaction and the customer.
+     * 2. The customer approves it with their authenticator code or passkey
+     *    (`@authyon/auth` → `financialAuthorizations.confirm`).
+     * 3. `consume()` it with the same transaction right before executing it.
+     */
+    financialAuthorizations: {
+      /** POST /env/authorizations — registers a transaction awaiting the customer's approval. */
+      create: (input: CreateFinancialAuthorizationInput): Promise<FinancialAuthorization> => {
+        const { idempotencyKey, ...body } = input;
+        if (typeof idempotencyKey !== "string" || !idempotencyKey.trim())
+          throw new TypeError("Authyon: `idempotencyKey` is required.");
+        return this.request("/env/authorizations", {
+          method: "POST",
+          envBearer: true,
+          headers: { "Idempotency-Key": idempotencyKey },
+          body,
+        });
+      },
+
+      /** GET /env/authorizations/{id} — current status and, once approved, the assurance evidence. */
+      get: (id: string): Promise<FinancialAuthorization> =>
+        this.request(`/env/authorizations/${segment(id)}`, { envBearer: true }),
+
+      /**
+       * POST /env/authorizations/{id}/consume — redeems an approved
+       * authorization exactly once. Resend the same transaction given to
+       * `create()`; any difference fails with `transaction_mismatch`.
+       */
+      consume: (
+        id: string,
+        transaction: FinancialTransaction,
+      ): Promise<ConsumedFinancialAuthorization> =>
+        this.request(`/env/authorizations/${segment(id)}/consume`, {
+          method: "POST",
+          envBearer: true,
+          body: transaction,
+        }),
     },
 
     audit: {
