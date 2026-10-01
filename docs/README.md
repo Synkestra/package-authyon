@@ -33,7 +33,7 @@ Esta pasta reúne a referência gerada pelo TypeDoc e a documentação prática 
 - [Gerenciamento de organizações](./examples/organizationMembership.md)
 - [Express](./examples/express.md)
 - [Abilities e permissões](./examples/authorization.md)
-- [Validar OTP e step-up com payload](./financialStepUp.md)
+- [Segurança: OTP e aprovações (`authyon.security`)](./security-otp-approvals.md)
 
 ## Infraestrutura
 

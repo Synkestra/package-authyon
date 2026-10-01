@@ -20,7 +20,7 @@ Este catálogo reúne todos os códigos encontrados no SDK, exemplos e documenta
 
 A API envia estes erros no formato OAuth (`error`/`error_description`); o SDK os expõe
 como `code`/`detail`. Campos extras ficam em `AuthyonError.extensions`. Veja o
-[guia de step-up](./docs/financialStepUp.md).
+[guia de segurança](./docs/security-otp-approvals.md).
 
 | Constante                       | Código                            | Categoria        | Ação sugerida                                     |
 | ------------------------------- | --------------------------------- | ---------------- | ------------------------------------------------- |
@@ -28,15 +28,15 @@ como `code`/`detail`. Campos extras ficam em `AuthyonError.extensions`. Veja o
 | `InvalidSecondFactorCode`       | `invalid_code`                    | `validation`     | pedir de novo; ver `extensions.attemptsRemaining` |
 | `VerificationAttemptsExhausted` | `verification_attempts_exhausted` | `conflict`       | criar nova autorização                            |
 | `MethodNotEnrolled`             | `method_not_enrolled`             | `validation`     | cadastrar autenticador ou passkey                 |
-| `InvalidAuthorizationState`     | `invalid_authorization_state`     | `conflict`       | ler `extensions.status`                           |
+| `InvalidApprovalState`          | `invalid_authorization_state`     | `conflict`       | ler `extensions.status`                           |
 | `PayloadMismatch`               | `payload_mismatch`                | `validation`     | não executar a operação                           |
-| `AuthorizationNotConsumable`    | `authorization_not_consumable`    | `conflict`       | não executar a operação                           |
+| `ApprovalNotConsumable`         | `authorization_not_consumable`    | `conflict`       | não executar a operação                           |
 | `IdempotencyConflict`           | `idempotency_conflict`            | `conflict`       | usar outra `Idempotency-Key`                      |
 | `UserNotFound`                  | `user_not_found`                  | `not_found`      | conferir o id do usuário                          |
 | `UserDisabled`                  | `user_disabled`                   | `authorization`  | usuário desativado, suspenso ou excluído          |
 | `TemporarilyUnavailable`        | `temporarily_unavailable`         | `server`         | tentar de novo em instantes                       |
 | `InsufficientScope`             | `insufficient_scope`              | `authorization`  | dar o escopo `authyon:financial:authorize`        |
-| `AuthorizationNotFound`         | `authorization_not_found`         | `not_found`      | id inexistente ou de outro usuário/credencial     |
+| `ApprovalNotFound`              | `authorization_not_found`         | `not_found`      | id inexistente ou de outro usuário/credencial     |
 | `SessionRevoked`                | `session_revoked`                 | `authentication` | 3 códigos errados seguidos; fazer login de novo   |
 | `TwoFactorTooManyFailures`      | `user.2fa.too_many_failures`      | `authorization`  | 3 códigos errados seguidos; fazer login de novo   |
 

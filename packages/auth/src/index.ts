@@ -1,5 +1,6 @@
 export { AuthyonClient, createClient } from "./client/authyonClient";
 export { AuthyonClientBuilder } from "./client/authyonClientBuilder";
+export type { SubjectApprovals, SubjectSecurity } from "../../../internal/core/security/approvals";
 export { AuthyonError, ErrorCodes } from "./errors";
 export type {
   AuthyonErrorAction,
@@ -45,12 +46,12 @@ export type {
 export type {
   Activity,
   AuthEvent,
-  ConfirmFinancialAuthorizationInput,
-  FinancialAssurance,
-  FinancialAuthorization,
-  FinancialAuthorizationPayload,
-  FinancialAuthorizationStatus,
-  FinancialWebAuthnOptions,
+  Approval,
+  ApprovalAssurance,
+  ApprovalPayload,
+  ApprovalStatus,
+  ApprovalWebAuthnOptions,
+  ConfirmApprovalInput,
   AuthStateListener,
   AuthState,
   AuthenticatorSetup,

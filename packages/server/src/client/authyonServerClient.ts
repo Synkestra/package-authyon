@@ -15,12 +15,12 @@ import {
 } from "./credentialManagement";
 import { UserScopedClient } from "./scopedManagementClient";
 import type {
-  ConsumedFinancialAuthorization,
-  CreateFinancialAuthorizationInput,
-  FinancialAuthorization,
-  FinancialAuthorizationPayload,
-  OtpVerificationResult,
-} from "../contracts/financial";
+  Approval,
+  ApprovalPayload,
+  ConsumedApproval,
+  CreateApprovalInput,
+  OtpCheckResult,
+} from "../contracts/security";
 import { DEFAULT_BASE_URL } from "../../../../internal/core/config/defaults";
 import { ExpiringTokenProvider } from "../../../../internal/core/auth/expiringTokenProvider";
 import {
@@ -370,19 +370,6 @@ export class AuthyonServerClient {
           body: { reason },
         }),
 
-      /**
-       * POST /env/users/{userId}/otp/verify — checks the user's authenticator
-       * app (TOTP) code. Each code is accepted once; 5 consecutive failures
-       * lock the check for 15 minutes (`rate_limited`). Needs the
-       * `authyon:financial:authorize` scope.
-       */
-      verifyOtp: (userId: string, code: string): Promise<OtpVerificationResult> =>
-        this.request(`/env/users/${segment(userId)}/otp/verify`, {
-          method: "POST",
-          envBearer: true,
-          body: { code },
-        }),
-
       /** POST /env/users/{userId}/tenants — adds an environment user to a tenant. */
       assignTenant: (userId: string, tenantId: string, roles?: string[]): Promise<void> =>
         this.request(`/env/users/${encodeURIComponent(userId)}/tenants`, {
@@ -658,18 +645,50 @@ export class AuthyonServerClient {
         this.request("/permissions/reserved", { envBearer: true }),
     },
 
+    audit: {
+      /** GET /env/audit — paginated list of the environment's audit events. */
+      list: (params: PaginationOptions = {}): Promise<Paged<AuditEvent>> =>
+        this.request("/env/audit", { envBearer: true, query: params }),
+
+      /** GET /env/audit/login-activity — paginated login activity in the environment. */
+      loginActivity: (params: PaginationOptions = {}): Promise<Paged<LoginActivity>> =>
+        this.request("/env/audit/login-activity", { envBearer: true, query: params }),
+    },
+  };
+
+  // ── Security: one-time codes and approvals ───────────────────────────────
+  //
+  // Everything here runs with the environment credential, which needs the
+  // `authyon:financial:authorize` scope. Keep that credential on the server.
+
+  readonly security = {
+    otp: {
+      /**
+       * POST /env/users/{userId}/otp/verify — checks the user's authenticator
+       * app (TOTP) code. A wrong code returns `{ valid: false }` instead of
+       * throwing. Each code is accepted once; 3 wrong codes in a row sign the
+       * user out everywhere (`sessionsRevoked: true`); 5 lock the check for 15
+       * minutes (`rate_limited`).
+       */
+      check: (userId: string, code: string): Promise<OtpCheckResult> =>
+        this.request(`/env/users/${segment(userId)}/otp/verify`, {
+          method: "POST",
+          envBearer: true,
+          body: { code },
+        }),
+    },
+
     /**
-     * Payload-bound step-up: the customer approves an arbitrary JSON payload
-     * with their authenticator code or passkey. The environment credential
-     * needs the `authyon:financial:authorize` scope.
+     * The customer approves a payload with their authenticator code or
+     * passkey, once.
      *
-     * 1. `create()` the authorization with the payload and the customer.
-     * 2. The customer approves it (`@authyon/auth` → `financialAuthorizations.confirm`).
+     * 1. `create()` the approval with the payload and the customer.
+     * 2. The customer confirms it (`@authyon/auth` → `security.approvals.confirm`).
      * 3. `consume()` it right before executing, and execute the returned payload.
      */
-    financialAuthorizations: {
+    approvals: {
       /** POST /env/authorizations — registers a payload awaiting the customer's approval. */
-      create: (input: CreateFinancialAuthorizationInput): Promise<FinancialAuthorization> => {
+      create: (input: CreateApprovalInput): Promise<Approval> => {
         const { idempotencyKey, ...body } = input;
         return this.request("/env/authorizations", {
           method: "POST",
@@ -680,34 +699,20 @@ export class AuthyonServerClient {
       },
 
       /** GET /env/authorizations/{id} — current status and, once approved, the assurance evidence. */
-      get: (id: string): Promise<FinancialAuthorization> =>
+      get: (id: string): Promise<Approval> =>
         this.request(`/env/authorizations/${segment(id)}`, { envBearer: true }),
 
       /**
-       * POST /env/authorizations/{id}/consume — redeems an approved
-       * authorization exactly once and returns the approved payload. Pass
-       * `payload` to have the API check it matches (`payload_mismatch`
-       * otherwise).
+       * POST /env/authorizations/{id}/consume — redeems an approved approval
+       * exactly once and returns the approved payload. Pass `payload` to have
+       * the API check it matches (`payload_mismatch` otherwise).
        */
-      consume: (
-        id: string,
-        payload?: FinancialAuthorizationPayload,
-      ): Promise<ConsumedFinancialAuthorization> =>
+      consume: (id: string, payload?: ApprovalPayload): Promise<ConsumedApproval> =>
         this.request(`/env/authorizations/${segment(id)}/consume`, {
           method: "POST",
           envBearer: true,
           body: payload === undefined ? undefined : { payload },
         }),
-    },
-
-    audit: {
-      /** GET /env/audit — paginated list of the environment's audit events. */
-      list: (params: PaginationOptions = {}): Promise<Paged<AuditEvent>> =>
-        this.request("/env/audit", { envBearer: true, query: params }),
-
-      /** GET /env/audit/login-activity — paginated login activity in the environment. */
-      loginActivity: (params: PaginationOptions = {}): Promise<Paged<LoginActivity>> =>
-        this.request("/env/audit/login-activity", { envBearer: true, query: params }),
     },
   };
 

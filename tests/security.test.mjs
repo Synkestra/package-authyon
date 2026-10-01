@@ -68,15 +68,15 @@ const header = (request, name) => new globalThis.Headers(request.headers).get(na
 
 test("server creates with a free-form payload and consumes it", async () => {
   const { client, requests } = serverFixture();
-  await client.environment.financialAuthorizations.create({
+  await client.security.approvals.create({
     subjectId: "user-1",
     payload,
     expiresInSeconds: 120,
     idempotencyKey: "order-42",
   });
-  await client.environment.financialAuthorizations.get("auth/1");
-  await client.environment.financialAuthorizations.consume("auth/1", payload);
-  await client.environment.financialAuthorizations.consume("auth/1");
+  await client.security.approvals.get("auth/1");
+  await client.security.approvals.consume("auth/1", payload);
+  await client.security.approvals.consume("auth/1");
 
   const [, create, get, consume, consumeWithoutBody] = requests;
   assert.equal(create.url, "https://api.authyon.com/env/authorizations");
@@ -95,19 +95,19 @@ test("server creates with a free-form payload and consumes it", async () => {
 
 test("server create works without an idempotency key", async () => {
   const { client, requests } = serverFixture();
-  await client.environment.financialAuthorizations.create({ subjectId: "u" });
+  await client.security.approvals.create({ subjectId: "u" });
   assert.equal(header(requests[1], "idempotency-key"), null);
   assert.deepEqual(JSON.parse(requests[1].body), { subjectId: "u" });
 });
 
-test("verifyOtp posts the code for the user and returns the verdict", async () => {
+test("security.otp.check posts the code for the user and returns the verdict", async () => {
   const { client, requests } = serverFixture((request) =>
     JSON.parse(request.body).code === "123456"
       ? globalThis.Response.json({ valid: true, userId: "user/1", method: "otp", verifiedAt: "x" })
       : globalThis.Response.json({ valid: false, attemptsRemaining: 4 }),
   );
-  assert.equal((await client.environment.users.verifyOtp("user/1", "123456")).valid, true);
-  assert.deepEqual(await client.environment.users.verifyOtp("user/1", "000000"), {
+  assert.equal((await client.security.otp.check("user/1", "123456")).valid, true);
+  assert.deepEqual(await client.security.otp.check("user/1", "000000"), {
     valid: false,
     attemptsRemaining: 4,
   });
@@ -115,11 +115,11 @@ test("verifyOtp posts the code for the user and returns the verdict", async () =
   assert.equal(header(requests[1], "authorization"), "Bearer environment-token");
 });
 
-test("verifyOtp lockout surfaces as rate_limited with retryAfterSeconds", async () => {
+test("security.otp.check lockout surfaces as rate_limited with retryAfterSeconds", async () => {
   const { client } = serverFixture(() =>
     globalThis.Response.json({ error: "rate_limited", retryAfterSeconds: 900 }, { status: 429 }),
   );
-  const error = await client.environment.users.verifyOtp("u", "123456").catch((cause) => cause);
+  const error = await client.security.otp.check("u", "123456").catch((cause) => cause);
   assert.equal(error.code, ErrorCodes.RateLimited);
   assert.equal(error.extensions.retryAfterSeconds, 900);
   assert.equal(error.retryable, true);
@@ -129,7 +129,7 @@ test("customer confirms with an authenticator code using their own bearer", asyn
   const { client, requests } = authFixture(() =>
     globalThis.Response.json({ ...pending, status: "approved" }),
   );
-  const approved = await client.financialAuthorizations.confirm("auth/1", {
+  const approved = await client.security.approvals.confirm("auth/1", {
     method: "authenticator",
     code: "123456",
   });
@@ -146,13 +146,13 @@ test("customer passkey flow, reject and confirm without body", async () => {
       ? globalThis.Response.json({ ceremonyToken: "c1", optionsJson: "{}" })
       : globalThis.Response.json(pending),
   );
-  const options = await client.financialAuthorizations.webauthnOptions("auth-1");
-  await client.financialAuthorizations.confirm("auth-1", {
+  const options = await client.security.approvals.webauthnOptions("auth-1");
+  await client.security.approvals.confirm("auth-1", {
     method: "webauthn",
     webAuthn: { ceremonyToken: options.ceremonyToken, assertionJson: '{"id":"x"}' },
   });
-  await client.financialAuthorizations.confirm("auth-1");
-  await client.financialAuthorizations.reject("auth-1");
+  await client.security.approvals.confirm("auth-1");
+  await client.security.approvals.reject("auth-1");
 
   assert.equal(requests[0].method, "POST");
   assert.deepEqual(JSON.parse(requests[1].body).webAuthn, {
@@ -163,7 +163,7 @@ test("customer passkey flow, reject and confirm without body", async () => {
   assert.equal(requests[3].url, "https://api.authyon.com/auth/authorizations/auth-1/reject");
 });
 
-test("OAuth-style financial errors map to code, detail and extensions", async () => {
+test("OAuth-style security errors map to code, detail and extensions", async () => {
   const { client } = authFixture(() =>
     globalThis.Response.json(
       {
@@ -174,7 +174,7 @@ test("OAuth-style financial errors map to code, detail and extensions", async ()
       { status: 400 },
     ),
   );
-  const error = await client.financialAuthorizations
+  const error = await client.security.approvals
     .confirm("auth-1", { method: "authenticator", code: "000000" })
     .catch((cause) => cause);
   assert.ok(error instanceof AuthyonError);
@@ -192,15 +192,15 @@ test("step_up_required asks the customer to authenticate again", async () => {
       { status: 403 },
     ),
   );
-  const error = await client.financialAuthorizations.confirm("auth-1").catch((cause) => cause);
+  const error = await client.security.approvals.confirm("auth-1").catch((cause) => cause);
   assert.equal(error.code, ErrorCodes.StepUpRequired);
   assert.equal(error.interpret().action, "reauthenticate");
   assert.deepEqual(error.extensions.requiredMethods, ["webauthn", "totp"]);
 });
 
-test("server user scope exposes customer approval for BFFs", async () => {
+test("server user scope exposes security.approvals for BFFs", async () => {
   const { client, requests } = serverFixture();
-  await client.user("customer-token").financialAuthorizations.get("auth-1");
+  await client.user("customer-token").security.approvals.get("auth-1");
   assert.equal(requests[0].url, "https://api.authyon.com/auth/authorizations/auth-1");
   assert.equal(header(requests[0], "authorization"), "Bearer customer-token");
 });

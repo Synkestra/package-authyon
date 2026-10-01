@@ -1,16 +1,15 @@
-/** Lifecycle of a payload-bound authorization. */
-export type FinancialAuthorizationStatus =
-  "pending" | "approved" | "denied" | "consumed" | "expired";
+/** Lifecycle of an approval. */
+export type ApprovalStatus = "pending" | "approved" | "denied" | "consumed" | "expired";
 
 /**
  * Free-form JSON object describing what the customer approves (up to 16 KiB).
  * The API stores it, shows it back to the customer and binds its canonical
  * hash (keys sorted) to the approval.
  */
-export type FinancialAuthorizationPayload = Record<string, unknown>;
+export type ApprovalPayload = Record<string, unknown>;
 
 /** Evidence of how the customer proved their identity when approving. */
-export interface FinancialAssurance {
+export interface ApprovalAssurance {
   /** `urn:authyon:loa:3` (passkey) or `urn:authyon:loa:2` (authenticator code). */
   acr: string;
   /** Authentication methods, e.g. `["pwd", "otp"]` or `["pwd", "webauthn"]`. */
@@ -19,13 +18,14 @@ export interface FinancialAssurance {
   authTime: string;
 }
 
-export interface FinancialAuthorization {
+/** A request for the customer to approve something with a second factor. */
+export interface Approval {
   id: string;
-  status: FinancialAuthorizationStatus;
+  status: ApprovalStatus;
   subjectId: string;
   tenantId?: string | null;
   /** The payload given to `create()`, with keys in canonical order. */
-  payload: FinancialAuthorizationPayload;
+  payload: ApprovalPayload;
   /** SHA-256 (hex) of the canonical payload. */
   payloadHash: string;
   createdAt: string;
@@ -33,11 +33,11 @@ export interface FinancialAuthorization {
   decidedAt?: string | null;
   consumedAt?: string | null;
   /** Present once approved. */
-  assurance?: FinancialAssurance | null;
+  assurance?: ApprovalAssurance | null;
 }
 
-/** Inline second factor sent with `confirm()`. */
-export type ConfirmFinancialAuthorizationInput =
+/** Second factor sent with `confirm()`. */
+export type ConfirmApprovalInput =
   | {
       method: "authenticator";
       /** Six-digit code from the customer's authenticator app. */
@@ -53,8 +53,8 @@ export type ConfirmFinancialAuthorizationInput =
       };
     };
 
-/** Passkey assertion options for approving one authorization. */
-export interface FinancialWebAuthnOptions {
+/** Passkey assertion options for approving one approval. */
+export interface ApprovalWebAuthnOptions {
   ceremonyToken: string;
   /** JSON `PublicKeyCredentialRequestOptions` to pass to `navigator.credentials.get()`. */
   optionsJson: string;

@@ -7,7 +7,10 @@ import type {
 } from "../contracts/management";
 import type { PaginationOptions } from "../contracts/server";
 import { segment, type ManagementRequest } from "./credentialManagement";
-import { subjectFinancialAuthorizations } from "../../../../internal/core/financial/subjectFinancialAuthorizations";
+import {
+  subjectSecurity,
+  type SubjectSecurity,
+} from "../../../../internal/core/security/approvals";
 
 function scopedRequest(request: ManagementRequest, source: AccessTokenSource): ManagementRequest {
   return async <T>(path: string, options: JsonRequestOptions = {}): Promise<T> => {
@@ -26,14 +29,13 @@ export class UserScopedClient {
   /** @hidden */
   constructor(request: ManagementRequest, token: AccessTokenSource) {
     this.#request = scopedRequest(request, token);
-    this.financialAuthorizations = subjectFinancialAuthorizations(this.#request);
+    this.security = subjectSecurity(this.#request);
   }
   /**
-   * Customer-side approval of a financial authorization, for backends (BFF)
-   * that hold the customer's access token: `get`, `webauthnOptions`,
-   * `confirm`, `reject`.
+   * The customer's side of `security.approvals`, for backends (BFF) that hold
+   * the customer's access token: `get`, `webauthnOptions`, `confirm`, `reject`.
    */
-  readonly financialAuthorizations: ReturnType<typeof subjectFinancialAuthorizations>;
+  readonly security: SubjectSecurity;
   readonly tenants = {
     members: {
       list: (tenantId: string, options: PaginationOptions = {}): Promise<TenantMemberPage> =>

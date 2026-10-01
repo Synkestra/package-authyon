@@ -120,7 +120,7 @@ await authyon.environment.audit.list({ take: 50 });
 
 Veja [`examples/organizationMembership.ts`](./examples/organizationMembership.ts) para o fluxo completo, incluindo as rotas de backend que o `@authyon/auth` chamaria.
 
-Namespaces disponíveis: `environment.users`, `environment.tenants` (com `.members` e `.roles` aninhados), `environment.roles`, `environment.permissions`, `environment.audit`, `environment.financialAuthorizations`.
+Namespaces disponíveis: `environment.users`, `environment.tenants` (com `.members` e `.roles` aninhados), `environment.roles`, `environment.permissions`, `environment.audit`. OTP e aprovações ficam em `security` (veja abaixo).
 
 ## Autorização local
 
@@ -191,28 +191,36 @@ Chamadas server-side propagam `clientIp` em `X-Forwarded-For`. O middleware Expr
 await authyon.validate(token, { clientIp: "203.0.113.10" });
 ```
 
-## Validar OTP e step-up
+## Segurança (`security.*`)
 
-Exige uma credencial de ambiente com o escopo `authyon:financial:authorize`. Guia
-completo: [`docs/financialStepUp.md`](../../docs/financialStepUp.md).
+OTP e aprovações ficam agrupados em `authyon.security`. Exige uma credencial de ambiente
+com o escopo `authyon:financial:authorize`. Guia completo:
+[`docs/security-otp-approvals.md`](../../docs/security-otp-approvals.md).
 
 ```ts
-// Só validar o código do app autenticador
-const result = await authyon.environment.users.verifyOtp(customerId, code);
-if (!result.valid) console.log(result.attemptsRemaining);
+// security.otp — só validar o código do app autenticador
+const result = await authyon.security.otp.check(customerId, code);
+if (!result.valid) console.log(result.attemptsRemaining, result.sessionsRevoked);
 
-// Aprovação presa a um payload livre e de uso único
-const { id } = await authyon.environment.financialAuthorizations.create({
+// security.approvals — aprovação presa a um payload livre e de uso único
+const { id } = await authyon.security.approvals.create({
   subjectId: customerId,
   payload: { type: "pix", amount: 150.5, to: "maria@example.com" },
 });
-// ...cliente aprova com @authyon/auth → financialAuthorizations.confirm
-const { payload } = await authyon.environment.financialAuthorizations.consume(id);
+// ...cliente confirma com @authyon/auth → security.approvals.confirm
+const { payload } = await authyon.security.approvals.consume(id);
 ```
 
-`verifyOtp` aceita cada código uma vez e bloqueia por 15 minutos após 5 erros seguidos.
-Se o seu servidor guarda o token do cliente (BFF), a aprovação também está em
-`authyon.user(accessToken).financialAuthorizations`.
+| Método                               | Endpoint                                |
+| ------------------------------------ | --------------------------------------- |
+| `security.otp.check(userId, code)`   | `POST /env/users/{userId}/otp/verify`   |
+| `security.approvals.create(input)`   | `POST /env/authorizations`              |
+| `security.approvals.get(id)`         | `GET /env/authorizations/{id}`          |
+| `security.approvals.consume(id, p?)` | `POST /env/authorizations/{id}/consume` |
+
+Cada código vale uma vez; 3 erros seguidos deslogam o usuário de todos os dispositivos e
+5 bloqueiam a verificação por 15 minutos. Se o seu servidor guarda o token do cliente
+(BFF), o lado do cliente está em `authyon.user(accessToken).security.approvals`.
 
 ## Administração por tenant (`tenant()`)
 

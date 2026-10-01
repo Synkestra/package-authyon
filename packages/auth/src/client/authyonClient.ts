@@ -1,7 +1,7 @@
 import {
-  subjectFinancialAuthorizations,
-  type SubjectFinancialAuthorizations,
-} from "../../../../internal/core/financial/subjectFinancialAuthorizations";
+  subjectSecurity,
+  type SubjectSecurity,
+} from "../../../../internal/core/security/approvals";
 import { AuthyonError, ErrorCodes } from "../errors";
 import { createDefaultStorage } from "../session/storage";
 import {
@@ -644,16 +644,16 @@ export class AuthyonClient {
     },
   };
 
-  // ── Financial step-up (customer side) ────────────────────────────────────
+  // ── Security (customer side) ─────────────────────────────────────────────
 
   /**
-   * Payload-bound approvals created by your backend
-   * (`@authyon/server` → `environment.financialAuthorizations.create`).
+   * `security.approvals`: approve or reject what your backend asked the
+   * customer to confirm (`@authyon/server` → `security.approvals.create`).
    * Show the payload with `get()`, then `confirm()` with the customer's
    * authenticator code or passkey, or `reject()`.
    */
-  readonly financialAuthorizations: SubjectFinancialAuthorizations = subjectFinancialAuthorizations(
-    (path, options) => this.request(path, { ...options, bearer: true }),
+  readonly security: SubjectSecurity = subjectSecurity((path, options) =>
+    this.request(path, { ...options, bearer: true }),
   );
 
   // ── Token verification ───────────────────────────────────────────────────

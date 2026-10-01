@@ -8,19 +8,25 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ### Adicionado
 
-- `environment.users.verifyOtp(userId, code)` no `@authyon/server`: valida o código do
-  app autenticador do usuário e devolve `{ valid }`. Cada código vale uma vez; 5 erros
-  seguidos bloqueiam por 15 minutos.
-- Autorizações de step-up com `payload` JSON livre (até 16 KiB):
-  `environment.financialAuthorizations` (`create`, `get`, `consume`) no `@authyon/server`
-  e `financialAuthorizations` (`get`, `webauthnOptions`, `confirm`, `reject`) no
-  `@authyon/auth` e em `server.user(token)`. O cliente aprova com código do autenticador
-  ou passkey; `consume` é de uso único e devolve o payload aprovado.
-  Guia em `docs/financialStepUp.md`.
+- Namespace `security` reunindo OTP e aprovações:
+  - `@authyon/server`: `security.otp.check(userId, code)` valida o código do app
+    autenticador e devolve `{ valid }` (código errado não lança erro). Cada código vale
+    uma vez; 3 erros seguidos deslogam o usuário (`sessionsRevoked`), 5 bloqueiam por
+    15 minutos.
+  - `@authyon/server`: `security.approvals` (`create`, `get`, `consume`) — aprovação de
+    um `payload` JSON livre (até 16 KiB), de uso único; `consume` devolve o payload
+    aprovado.
+  - `@authyon/auth` e `server.user(token)`: `security.approvals` (`get`,
+    `webauthnOptions`, `confirm`, `reject`) — o cliente confirma com código do
+    autenticador ou passkey.
+  - Tipos `OtpCheckResult`, `Approval`, `CreateApprovalInput`, `ConsumedApproval`,
+    `ConfirmApprovalInput`, `ApprovalWebAuthnOptions`, `ApprovalPayload`,
+    `ApprovalAssurance` e `ApprovalStatus`. Guia em `docs/security-otp-approvals.md`.
 - `ErrorCodes` para o fluxo: `StepUpRequired`, `InvalidSecondFactorCode`,
-  `VerificationAttemptsExhausted`, `MethodNotEnrolled`, `InvalidAuthorizationState`,
-  `PayloadMismatch`, `AuthorizationNotConsumable`, `IdempotencyConflict`,
-  `UserNotFound` e `UserDisabled`.
+  `VerificationAttemptsExhausted`, `MethodNotEnrolled`, `InvalidApprovalState`,
+  `PayloadMismatch`, `ApprovalNotConsumable`, `ApprovalNotFound`, `IdempotencyConflict`,
+  `UserNotFound`, `UserDisabled`, `TemporarilyUnavailable`, `InsufficientScope`,
+  `SessionRevoked` e `TwoFactorTooManyFailures`.
 - `AuthyonError.extensions` expõe campos extras do corpo de erro, como
   `attemptsRemaining`, `retryAfterSeconds` e `requiredMethods`. Não entram em `toJSON()`.
 

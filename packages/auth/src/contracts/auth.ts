@@ -260,10 +260,10 @@ export type {
   PaginationOptions,
 } from "../../../../internal/core/contracts/common";
 export type {
-  ConfirmFinancialAuthorizationInput,
-  FinancialAssurance,
-  FinancialAuthorization,
-  FinancialAuthorizationPayload,
-  FinancialAuthorizationStatus,
-  FinancialWebAuthnOptions,
-} from "../../../../internal/core/contracts/financial";
+  Approval,
+  ApprovalAssurance,
+  ApprovalPayload,
+  ApprovalStatus,
+  ApprovalWebAuthnOptions,
+  ConfirmApprovalInput,
+} from "../../../../internal/core/contracts/security";

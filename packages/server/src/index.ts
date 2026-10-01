@@ -101,5 +101,6 @@ export type {
 } from "./contracts/server";
 
 export type * from "./contracts/management";
-export type * from "./contracts/financial";
+export type * from "./contracts/security";
+export type { SubjectApprovals, SubjectSecurity } from "../../../internal/core/security/approvals";
 export { UserScopedClient } from "./client/scopedManagementClient";

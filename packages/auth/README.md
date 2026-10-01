@@ -273,27 +273,28 @@ Métodos de sessão/auth ficam soltos no client; os que giram em torno de um rec
 | `sso.startUrl(provider, params)` | monta a URL de `GET /auth/sso/{provider}/start` (não faz a chamada — navegue até ela) |
 | `sso.exchange(code)`             | `POST /auth/sso/exchange`                                                             |
 
-### `authyon.financialAuthorizations` (aprovação com OTP/passkey)
+### `authyon.security` (aprovação com OTP/passkey)
 
-O cliente aprova uma autorização criada pelo seu backend (com um `payload` livre) usando o
-código do app autenticador ou a passkey. Para só validar um código, use
-`environment.users.verifyOtp` no `@authyon/server`. Guia completo: [`docs/financialStepUp.md`](../../docs/financialStepUp.md).
+`security.approvals`: o cliente aprova o que o seu backend pediu
+(`@authyon/server` → `security.approvals.create`, com um `payload` livre) usando o código
+do app autenticador ou a passkey. Para só validar um código, use `security.otp.check` no
+`@authyon/server`. Guia completo: [`docs/security-otp-approvals.md`](../../docs/security-otp-approvals.md).
 
 ```ts
-const pending = await authyon.financialAuthorizations.get(authorizationId);
+const pending = await authyon.security.approvals.get(approvalId);
 // mostre pending.payload ao cliente
-await authyon.financialAuthorizations.confirm(authorizationId, {
+await authyon.security.approvals.confirm(approvalId, {
   method: "authenticator",
   code: "123456",
 });
 ```
 
-| Método                                        | Endpoint                                          |
-| --------------------------------------------- | ------------------------------------------------- |
-| `financialAuthorizations.get(id)`             | `GET /auth/authorizations/{id}`                   |
-| `financialAuthorizations.webauthnOptions(id)` | `POST /auth/authorizations/{id}/webauthn/options` |
-| `financialAuthorizations.confirm(id, input?)` | `POST /auth/authorizations/{id}/confirm`          |
-| `financialAuthorizations.reject(id)`          | `POST /auth/authorizations/{id}/reject`           |
+| Método                                   | Endpoint                                          |
+| ---------------------------------------- | ------------------------------------------------- |
+| `security.approvals.get(id)`             | `GET /auth/authorizations/{id}`                   |
+| `security.approvals.webauthnOptions(id)` | `POST /auth/authorizations/{id}/webauthn/options` |
+| `security.approvals.confirm(id, input?)` | `POST /auth/authorizations/{id}/confirm`          |
+| `security.approvals.reject(id)`          | `POST /auth/authorizations/{id}/reject`           |
 
 ## Invalidação de token
 
