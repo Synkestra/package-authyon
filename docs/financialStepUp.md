@@ -63,6 +63,13 @@ Regras aplicadas pelo Authyon:
   contador é o mesmo dos códigos digitados no `confirm` das autorizações.
 - Se o contador de tentativas estiver indisponível, a verificação é recusada
   (`temporarily_unavailable`, status 503) em vez de liberar tentativas sem limite.
+- **3 erros seguidos deslogam o usuário de todos os dispositivos.** A contagem é por
+  usuário e soma os códigos errados no 2FA do login, no `verifyOtp` e no `confirm`
+  (um acerto zera; erros com mais de 1 hora deixam de contar). No 3º erro todas as sessões
+  são encerradas na hora, inclusive access tokens já emitidos, e o evento
+  `user.session.revoked_for_otp_failures` vai para a auditoria e para os webhooks.
+  O `verifyOtp` responde `{ valid: false, sessionsRevoked: true }`, o `confirm` responde
+  `session_revoked` (401) e o login com 2FA responde `user.2fa.too_many_failures`.
 - Toda tentativa é auditada (`user.two_factor.verified` / `user.two_factor.failed`).
 
 > O `customerId` deve vir da sessão validada no seu backend, nunca de um campo
@@ -217,6 +224,7 @@ Dados extras ficam em `error.extensions`.
 | `user_not_found`                  | 404    | usuário não existe neste ambiente                       |
 | `user_disabled`                   | 403    | usuário desativado, suspenso ou excluído                |
 | `temporarily_unavailable`         | 503    | contador de tentativas indisponível; tente de novo      |
+| `session_revoked`                 | 401    | 3º código errado seguido; usuário deslogado de tudo     |
 | `insufficient_scope`              | 403    | credencial sem o escopo `authyon:financial:authorize`   |
 | `authorization_not_found`         | 404    | autorização inexistente ou de outro usuário/credencial  |
 | `invalid_code`                    | 400    | `confirm` com código ou passkey errados                 |

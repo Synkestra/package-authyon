@@ -23,6 +23,8 @@ export const ErrorCodes = {
   TemporarilyUnavailable: "temporarily_unavailable",
   InsufficientScope: "insufficient_scope",
   AuthorizationNotFound: "authorization_not_found",
+  SessionRevoked: "session_revoked",
+  TwoFactorTooManyFailures: "user.2fa.too_many_failures",
 } as const;
 
 export type KnownErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

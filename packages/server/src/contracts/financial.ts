@@ -54,4 +54,10 @@ export type OtpVerificationResult =
       valid: false;
       /** Failures left before the check locks for 15 minutes. */
       attemptsRemaining: number;
+      /**
+       * True when this was the 3rd wrong code in a row (counted across login
+       * 2FA, `verifyOtp` and `confirm`): every session of the user was ended
+       * and they must sign in again.
+       */
+      sessionsRevoked?: boolean;
     };

@@ -37,6 +37,8 @@ como `code`/`detail`. Campos extras ficam em `AuthyonError.extensions`. Veja o
 | `TemporarilyUnavailable`        | `temporarily_unavailable`         | `server`         | tentar de novo em instantes                       |
 | `InsufficientScope`             | `insufficient_scope`              | `authorization`  | dar o escopo `authyon:financial:authorize`        |
 | `AuthorizationNotFound`         | `authorization_not_found`         | `not_found`      | id inexistente ou de outro usuário/credencial     |
+| `SessionRevoked`                | `session_revoked`                 | `authentication` | 3 códigos errados seguidos; fazer login de novo   |
+| `TwoFactorTooManyFailures`      | `user.2fa.too_many_failures`      | `authorization`  | 3 códigos errados seguidos; fazer login de novo   |
 
 ## Fallback por status HTTP
 
