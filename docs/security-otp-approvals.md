@@ -23,8 +23,12 @@ authyon.security                             authyon.security
 
 ## Pré-requisitos
 
-- **Credencial de ambiente** (`clientId`/`clientSecret`) com o escopo
-  `authyon:financial:authorize`. Sem ele as chamadas respondem `insufficient_scope` (403).
+- **Credencial de ambiente** (`clientId`/`clientSecret`) com o escopo de cada recurso:
+  - `security.otp.check` → `authyon:otp:verify`
+  - `security.approvals.*` (backend) → `authyon:financial:authorize`
+
+  Sem o escopo a chamada responde `insufficient_scope` (403), com o escopo que falta em
+  `extensions.requiredScope`. Dê a cada credencial só o que ela usa.
 - **Cliente com app autenticador cadastrado** (Google Authenticator, Authy, 1Password…).
   Use `authyon.twoFactor.status()` no `@authyon/auth` para saber se ele tem e, se
   necessário, conduza o cadastro com `twoFactor.setupAuthenticator()` (veja
@@ -117,6 +121,10 @@ Regras aplicadas pelo Authyon:
   (`rate_limited`, com `retryAfter`, `extensions.retryAfterSeconds` e header `Retry-After`).
 - `attemptsRemaining` conta quantos erros faltam para a primeira consequência (logout ou
   bloqueio) e vale `0` quando o usuário acabou de ser deslogado.
+- **Mais de 50 códigos errados em 10 minutos pela mesma credencial** (somando todos os
+  usuários) pausam o `otp.check` dessa credencial por 10 minutos (`credential_throttled`,
+  429 com `Retry-After`). Isso limita quantos usuários uma credencial vazada consegue
+  deslogar errando códigos de propósito.
 - Se o contador de tentativas estiver indisponível, a verificação é recusada
   (`temporarily_unavailable`, status 503) em vez de liberar tentativas sem limite.
 - Toda tentativa é auditada (`user.two_factor.verified` / `user.two_factor.failed`).
@@ -290,7 +298,8 @@ Dados extras ficam em `error.extensions`.
 | `TemporarilyUnavailable`        | `temporarily_unavailable`         | 503    | contador de tentativas indisponível; tente de novo  |
 | `SessionRevoked`                | `session_revoked`                 | 401    | 3º código errado seguido no `confirm`               |
 | `TwoFactorTooManyFailures`      | `user.2fa.too_many_failures`      | 403    | 3º código errado seguido no login com 2FA           |
-| `InsufficientScope`             | `insufficient_scope`              | 403    | credencial sem o escopo `authyon:financial:authorize` |
+| `InsufficientScope`             | `insufficient_scope`              | 403    | credencial sem o escopo (veja `extensions.requiredScope`) |
+| `CredentialThrottled`           | `credential_throttled`            | 429    | a credencial errou mais de 50 códigos em 10 min; pausada |
 | `ApprovalNotFound`              | `authorization_not_found`         | 404    | aprovação inexistente ou de outro usuário/credencial |
 | `InvalidSecondFactorCode`       | `invalid_code`                    | 400    | `confirm` com código ou passkey errados             |
 | `VerificationAttemptsExhausted` | `verification_attempts_exhausted` | 409    | 5ª falha no `confirm`; aprovação recusada           |
@@ -310,8 +319,10 @@ Dados extras ficam em `error.extensions`.
   ele é guardado como está, mostrado ao cliente e entra na trilha de auditoria.
 - **Mostre o `payload` ao cliente** antes de pedir o código; renderize-o como texto
   (sem HTML), porque o conteúdo vem do seu próprio backend mas é livre.
-- **A credencial com `authyon:financial:authorize` fica só no backend.** Com ela é possível
-  testar códigos de qualquer usuário do ambiente, sempre dentro do limite de tentativas.
+- **As credenciais com `authyon:otp:verify` e `authyon:financial:authorize` ficam só no
+  backend.** Com `authyon:otp:verify` é possível testar códigos de qualquer usuário do
+  ambiente, sempre dentro dos limites: 3 erros por usuário deslogam, 5 bloqueiam, e mais de
+  50 códigos errados em 10 minutos pausam a própria credencial (`credential_throttled`).
 
 ## Referência HTTP
 

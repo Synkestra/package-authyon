@@ -27,7 +27,10 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
     `ApprovalAssurance` e `ApprovalStatus`. Guia em `docs/security-otp-approvals.md`.
 - `ErrorCodes`: `InvalidApprovalState`, `PayloadMismatch`, `ApprovalNotConsumable`,
   `ApprovalNotFound`, `UserNotFound`, `UserDisabled`, `TemporarilyUnavailable`,
-  `InsufficientScope`, `SessionRevoked` e `TwoFactorTooManyFailures`.
+  `InsufficientScope`, `SessionRevoked`, `TwoFactorTooManyFailures` e
+  `CredentialThrottled`.
+- `security.otp.check` exige o escopo próprio `authyon:otp:verify` (as aprovações seguem
+  em `authyon:financial:authorize`).
 
 ### Alterado (quebra em relação à 0.2.0-beta.14)
 

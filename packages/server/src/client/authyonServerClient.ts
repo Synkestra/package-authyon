@@ -658,8 +658,9 @@ export class AuthyonServerClient {
 
   // ── Security: one-time codes and approvals ───────────────────────────────
   //
-  // Everything here runs with the environment credential, which needs the
-  // `authyon:financial:authorize` scope. Keep that credential on the server.
+  // Everything here runs with the environment credential: `otp` needs the
+  // `authyon:otp:verify` scope, `approvals` needs `authyon:financial:authorize`.
+  // Keep those credentials on the server.
 
   readonly security = {
     otp: {
@@ -668,7 +669,8 @@ export class AuthyonServerClient {
        * app (TOTP) code. A wrong code returns `{ valid: false }` instead of
        * throwing. Each code is accepted once; 3 wrong codes in a row sign the
        * user out everywhere (`sessionsRevoked: true`); 5 lock the check for 15
-       * minutes (`rate_limited`).
+       * minutes (`rate_limited`). More than 50 wrong codes in 10 minutes from the
+       * same credential pause it (`credential_throttled`). Needs `authyon:otp:verify`.
        */
       check: (userId: string, code: string): Promise<OtpCheckResult> =>
         this.request(`/env/users/${segment(userId)}/otp/verify`, {

@@ -22,6 +22,7 @@ export const ErrorCodes = {
   UserNotFound: "user_not_found",
   TemporarilyUnavailable: "temporarily_unavailable",
   InsufficientScope: "insufficient_scope",
+  CredentialThrottled: "credential_throttled",
   ApprovalNotFound: "authorization_not_found",
   SessionRevoked: "session_revoked",
   TwoFactorTooManyFailures: "user.2fa.too_many_failures",

@@ -194,7 +194,8 @@ await authyon.validate(token, { clientIp: "203.0.113.10" });
 ## Segurança (`security.*`)
 
 OTP e aprovações ficam agrupados em `authyon.security`. Exige uma credencial de ambiente
-com o escopo `authyon:financial:authorize`. Guia completo:
+com o escopo `authyon:otp:verify` (para `security.otp`) e/ou `authyon:financial:authorize`
+(para `security.approvals`). Guia completo:
 [`docs/security-otp-approvals.md`](../../docs/security-otp-approvals.md).
 
 ```ts
