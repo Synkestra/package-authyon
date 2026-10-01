@@ -33,7 +33,10 @@ como `code`/`detail`. Campos extras ficam em `AuthyonError.extensions`. Veja o
 | `AuthorizationNotConsumable`    | `authorization_not_consumable`    | `conflict`       | não executar a operação                           |
 | `IdempotencyConflict`           | `idempotency_conflict`            | `conflict`       | usar outra `Idempotency-Key`                      |
 | `UserNotFound`                  | `user_not_found`                  | `not_found`      | conferir o id do usuário                          |
-| `UserDisabled`                  | `user_disabled`                   | `authorization`  | usuário desativado; não prosseguir                |
+| `UserDisabled`                  | `user_disabled`                   | `authorization`  | usuário desativado, suspenso ou excluído          |
+| `TemporarilyUnavailable`        | `temporarily_unavailable`         | `server`         | tentar de novo em instantes                       |
+| `InsufficientScope`             | `insufficient_scope`              | `authorization`  | dar o escopo `authyon:financial:authorize`        |
+| `AuthorizationNotFound`         | `authorization_not_found`         | `not_found`      | id inexistente ou de outro usuário/credencial     |
 
 ## Fallback por status HTTP
 

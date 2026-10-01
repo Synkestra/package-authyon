@@ -20,6 +20,9 @@ export const ErrorCodes = {
   IdempotencyConflict: "idempotency_conflict",
   UserDisabled: "user_disabled",
   UserNotFound: "user_not_found",
+  TemporarilyUnavailable: "temporarily_unavailable",
+  InsufficientScope: "insufficient_scope",
+  AuthorizationNotFound: "authorization_not_found",
 } as const;
 
 export type KnownErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

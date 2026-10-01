@@ -59,7 +59,10 @@ Regras aplicadas pelo Authyon:
 - O código precisa ter 6 dígitos e valer para o momento atual (tolerância de ±30 s).
 - **Cada código é aceito uma única vez**: o mesmo código enviado de novo volta `valid: false`.
 - **5 erros seguidos bloqueiam a verificação por 15 minutos** para aquele usuário
-  (`rate_limited`, com `extensions.retryAfterSeconds`). Um acerto zera a contagem.
+  (`rate_limited`, com `retryAfter`/`extensions.retryAfterSeconds` e header `Retry-After`). Um acerto zera a contagem. O
+  contador é o mesmo dos códigos digitados no `confirm` das autorizações.
+- Se o contador de tentativas estiver indisponível, a verificação é recusada
+  (`temporarily_unavailable`, status 503) em vez de liberar tentativas sem limite.
 - Toda tentativa é auditada (`user.two_factor.verified` / `user.two_factor.failed`).
 
 > O `customerId` deve vir da sessão validada no seu backend, nunca de um campo
@@ -212,7 +215,10 @@ Dados extras ficam em `error.extensions`.
 | `method_not_enrolled`             | 400    | o cliente não tem app autenticador (ou passkey)         |
 | `rate_limited`                    | 429    | `verifyOtp` bloqueado após 5 erros seguidos             |
 | `user_not_found`                  | 404    | usuário não existe neste ambiente                       |
-| `user_disabled`                   | 403    | usuário desativado                                      |
+| `user_disabled`                   | 403    | usuário desativado, suspenso ou excluído                |
+| `temporarily_unavailable`         | 503    | contador de tentativas indisponível; tente de novo      |
+| `insufficient_scope`              | 403    | credencial sem o escopo `authyon:financial:authorize`   |
+| `authorization_not_found`         | 404    | autorização inexistente ou de outro usuário/credencial  |
 | `invalid_code`                    | 400    | `confirm` com código ou passkey errados                 |
 | `verification_attempts_exhausted` | 409    | 5ª falha no `confirm`; autorização recusada             |
 | `step_up_required`                | 403    | `confirm` sem código e sessão não recente/forte         |
@@ -223,6 +229,18 @@ Dados extras ficam em `error.extensions`.
 | `invalid_request`                 | 400    | entrada inválida (veja `detail`)                        |
 
 Lembre-se: `verifyOtp` com código errado **não** lança erro — devolve `valid: false`.
+
+## Segurança
+
+- **Valide a sessão no backend** e use o id do usuário dela no `verifyOtp` e no
+  `subjectId`; nunca aceite esse id vindo do navegador.
+- **Execute só depois do `consume`** e execute o `payload` que ele devolve.
+- **Não coloque segredos no `payload`** (número completo de cartão, CVV, senhas, tokens):
+  ele é guardado como está, mostrado ao cliente e entra na trilha de auditoria.
+- **Mostre o `payload` ao cliente** antes de pedir o código; renderize-o como texto
+  (sem HTML), porque o conteúdo vem do seu próprio backend mas é livre.
+- **A credencial com `authyon:financial:authorize` fica só no backend.** Com ela é possível
+  testar códigos de qualquer usuário do ambiente, sempre dentro do limite de tentativas.
 
 ## Referência HTTP
 
