@@ -2,7 +2,7 @@
 
 Tudo que prova, **no momento da operação**, que quem está pedindo é o próprio cliente
 fica em `authyon.security` — transferência, Pix, saque, troca de e-mail, visualizar
-dados do cartão. Disponível a partir de `0.2.0-beta.14`.
+dados do cartão. Disponível a partir de `0.2.0-beta.15`.
 
 ```text
 @authyon/server (seu backend)                @authyon/auth (cliente) · server.user(token)
