@@ -10,6 +10,7 @@ docs/*
 !docs/bff-gap-review.md
 !docs/bff-validation.md
 !docs/releaseBeta.md
+!docs/financialStepUp.md
 !docs/examples/
 !docs/examples/**
 *.log
