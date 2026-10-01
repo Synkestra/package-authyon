@@ -8,16 +8,21 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ### Adicionado
 
-- Confirmação de transações financeiras (step-up): `environment.financialAuthorizations`
-  (`create`, `get`, `consume`) no `@authyon/server` e `financialAuthorizations`
-  (`get`, `webauthnOptions`, `confirm`, `reject`) no `@authyon/auth` e em
-  `server.user(token)`. O cliente aprova com o código do app autenticador ou passkey,
-  amarrado à transação, com até 5 tentativas. Guia em `docs/financialStepUp.md`.
+- `environment.users.verifyOtp(userId, code)` no `@authyon/server`: valida o código do
+  app autenticador do usuário e devolve `{ valid }`. Cada código vale uma vez; 5 erros
+  seguidos bloqueiam por 15 minutos.
+- Autorizações de step-up com `payload` JSON livre (até 16 KiB):
+  `environment.financialAuthorizations` (`create`, `get`, `consume`) no `@authyon/server`
+  e `financialAuthorizations` (`get`, `webauthnOptions`, `confirm`, `reject`) no
+  `@authyon/auth` e em `server.user(token)`. O cliente aprova com código do autenticador
+  ou passkey; `consume` é de uso único e devolve o payload aprovado.
+  Guia em `docs/financialStepUp.md`.
 - `ErrorCodes` para o fluxo: `StepUpRequired`, `InvalidSecondFactorCode`,
   `VerificationAttemptsExhausted`, `MethodNotEnrolled`, `InvalidAuthorizationState`,
-  `TransactionMismatch`, `AuthorizationNotConsumable` e `IdempotencyConflict`.
+  `PayloadMismatch`, `AuthorizationNotConsumable`, `IdempotencyConflict`,
+  `UserNotFound` e `UserDisabled`.
 - `AuthyonError.extensions` expõe campos extras do corpo de erro, como
-  `attemptsRemaining` e `requiredMethods`. Não entram em `toJSON()`.
+  `attemptsRemaining`, `retryAfterSeconds` e `requiredMethods`. Não entram em `toJSON()`.
 
 ### Alterado
 

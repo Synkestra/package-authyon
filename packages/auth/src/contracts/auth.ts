@@ -263,7 +263,7 @@ export type {
   ConfirmFinancialAuthorizationInput,
   FinancialAssurance,
   FinancialAuthorization,
+  FinancialAuthorizationPayload,
   FinancialAuthorizationStatus,
-  FinancialTransaction,
   FinancialWebAuthnOptions,
 } from "../../../../internal/core/contracts/financial";

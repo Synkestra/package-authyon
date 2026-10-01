@@ -15,9 +15,11 @@ export const ErrorCodes = {
   VerificationAttemptsExhausted: "verification_attempts_exhausted",
   MethodNotEnrolled: "method_not_enrolled",
   InvalidAuthorizationState: "invalid_authorization_state",
-  TransactionMismatch: "transaction_mismatch",
+  PayloadMismatch: "payload_mismatch",
   AuthorizationNotConsumable: "authorization_not_consumable",
   IdempotencyConflict: "idempotency_conflict",
+  UserDisabled: "user_disabled",
+  UserNotFound: "user_not_found",
 } as const;
 
 export type KnownErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

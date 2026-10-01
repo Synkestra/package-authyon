@@ -17,7 +17,7 @@ function path(id: string, suffix = ""): string {
 /** Customer-side operations on a financial authorization (`/auth/authorizations`). */
 export function subjectFinancialAuthorizations(request: SubjectRequest) {
   return {
-    /** GET /auth/authorizations/{id} — the pending transaction, to show before asking for the code. */
+    /** GET /auth/authorizations/{id} — the pending payload, to show before asking for the code. */
     get: (id: string): Promise<FinancialAuthorization> => request(path(id)),
 
     /** POST /auth/authorizations/{id}/webauthn/options — passkey options for approving this authorization. */
@@ -25,7 +25,7 @@ export function subjectFinancialAuthorizations(request: SubjectRequest) {
       request(path(id, "/webauthn/options"), { method: "POST" }),
 
     /**
-     * POST /auth/authorizations/{id}/confirm — approves the transaction.
+     * POST /auth/authorizations/{id}/confirm — approves the payload.
      *
      * Pass the authenticator code or passkey assertion to verify the second
      * factor inline (recommended). Without `input`, the session itself must
@@ -38,7 +38,7 @@ export function subjectFinancialAuthorizations(request: SubjectRequest) {
     ): Promise<FinancialAuthorization> =>
       request(path(id, "/confirm"), { method: "POST", body: input }),
 
-    /** POST /auth/authorizations/{id}/reject — the customer declines the transaction. */
+    /** POST /auth/authorizations/{id}/reject — the customer declines it. */
     reject: (id: string): Promise<FinancialAuthorization> =>
       request(path(id, "/reject"), { method: "POST" }),
   };

@@ -1,52 +1,29 @@
-# Confirmação de transações financeiras (step-up)
+# Confirmação com OTP e step-up
 
-Use este fluxo quando uma operação sensível — transferência, Pix, saque, troca de
-beneficiário — precisa de uma prova, **no momento da operação**, de que quem está
-pedindo é o próprio cliente. O cliente confirma com o código do app autenticador
-(TOTP) ou com a passkey, e a aprovação fica presa **àquela transação específica**:
-não serve para outro valor, outro beneficiário nem pode ser reutilizada.
+Use estes recursos quando uma operação sensível — transferência, Pix, saque, troca de
+e-mail, visualizar dados do cartão — precisa de uma prova, **no momento da operação**,
+de que quem está pedindo é o próprio cliente.
 
-Disponível a partir de `0.2.0-beta.14` em `@authyon/server` e `@authyon/auth`.
+Há dois caminhos, ambos no `@authyon/server` a partir de `0.2.0-beta.14`:
 
-## Como funciona
-
-```mermaid
-sequenceDiagram
-    participant C as Cliente (navegador/app)
-    participant B as Seu backend
-    participant A as Authyon
-
-    C->>B: Quero transferir R$ 150,50 para Maria
-    B->>A: create(transação, subjectId, idempotencyKey)
-    A-->>B: { id, status: "pending" }
-    B-->>C: id da autorização
-    C->>A: get(id) — mostra valor e beneficiário
-    C->>A: confirm(id, { method: "authenticator", code })
-    A-->>C: { status: "approved", assurance }
-    C->>B: Confirmei, pode executar
-    B->>A: consume(id, mesma transação)
-    A-->>B: { status: "consumed", assurance }
-    B->>B: Executa a transferência
-```
-
-1. **Seu backend cria a autorização** com os dados da transação e o id do cliente.
-2. **O cliente vê a transação e confirma** digitando o código do autenticador (ou usando a passkey).
-3. **Seu backend consome a autorização** reenviando a mesma transação, e só então executa a operação.
-
-O passo 3 é obrigatório: é ele que garante que a transação executada é a mesma que o
-cliente aprovou e que a aprovação é usada uma única vez.
+| Caminho                                         | Quando usar                                                                 |
+| ----------------------------------------------- | --------------------------------------------------------------------------- |
+| [`verifyOtp`](#validar-o-otp)                   | Você só quer saber se o código do app autenticador está certo. Uma chamada. |
+| [Autorizações](#autorizações-com-payload)       | Você quer a aprovação presa a um conteúdo (valor, destino…) e de uso único. |
 
 ## Pré-requisitos
 
 - **Credencial de ambiente** (`clientId`/`clientSecret`) com o escopo
-  `authyon:financial:authorize`. Sem ele, `create`, `get` e `consume` respondem `403`.
-- **Cliente com segundo fator forte cadastrado**: app autenticador ou passkey.
-  OTP por e-mail e recovery codes **não** são aceitos para aprovar transações.
-  Use `authyon.twoFactor.status()` para saber o que o cliente tem e, se necessário,
-  conduza o cadastro com `twoFactor.setupAuthenticator()` /
-  `twoFactor.webauthn.registerStart()` (veja [Configuração de 2FA](./examples/twoFactorSetup.md)).
+  `authyon:financial:authorize`. Sem ele as chamadas respondem `403`.
+- **Cliente com app autenticador cadastrado** (Google Authenticator, Authy, 1Password…).
+  Use `authyon.twoFactor.status()` no `@authyon/auth` para saber se ele tem e, se
+  necessário, conduza o cadastro com `twoFactor.setupAuthenticator()` (veja
+  [Configuração de 2FA](./examples/twoFactorSetup.md)). As autorizações também aceitam passkey.
 
-## 1. Backend: criar a autorização
+## Validar o OTP
+
+Um único método. Seu backend recebe o código digitado pelo cliente e pergunta ao
+Authyon se ele é válido:
 
 ```ts
 import { createClient } from "@authyon/server";
@@ -57,194 +34,207 @@ const authyon = createClient({
   clientSecret: process.env.AUTHYON_CLIENT_SECRET,
 });
 
-const transaction = {
-  action: "pix.transfer",
-  amount: 150.5,
-  currency: "BRL",
-  beneficiary: "Maria Silva — CPF ***.456.789-**",
-  metadata: { pixKey: "maria@example.com", orderId: "order-42" },
-};
+const result = await authyon.environment.users.verifyOtp(customerId, code);
 
-const authorization = await authyon.environment.financialAuthorizations.create({
-  ...transaction,
-  subjectId: customerId, // id do usuário no Authyon
-  idempotencyKey: "order-42", // único por transação no seu sistema
-  expiresInSeconds: 300, // 60–600, padrão 300
-});
-
-// Guarde authorization.id junto do pedido e devolva-o ao frontend.
-```
-
-| Campo              | Regra                                                                             |
-| ------------------ | --------------------------------------------------------------------------------- |
-| `action`           | obrigatório, até 100 caracteres (ex.: `pix.transfer`, `withdrawal`)               |
-| `amount`           | maior que zero, até 15 dígitos inteiros e 4 casas decimais                        |
-| `currency`         | código ISO 4217 de 3 letras (`BRL`, `USD`)                                        |
-| `beneficiary`      | obrigatório, até 256 caracteres — é o texto que o cliente lê antes de confirmar   |
-| `metadata`         | opcional, objeto JSON de até 16 KiB; entra no hash da transação                   |
-| `tenantId`         | opcional; exige que o cliente confirme numa sessão desse tenant                   |
-| `idempotencyKey`   | obrigatório, até 128 caracteres; enviado no header `Idempotency-Key`              |
-| `expiresInSeconds` | opcional, entre 60 e 600                                                          |
-
-**Idempotência:** repetir o `create` com a mesma `idempotencyKey` e a mesma transação
-devolve a mesma autorização (seguro para retry). A mesma chave com uma transação
-diferente falha com `idempotency_conflict`.
-
-## 2. Frontend: o cliente confirma com o código
-
-```ts
-import { createClient, AuthyonError, ErrorCodes } from "@authyon/auth";
-
-const authyon = createClient({ envKey: "pk_live_..." });
-
-// Mostre exatamente o que está sendo aprovado.
-const pending = await authyon.financialAuthorizations.get(authorizationId);
-render(`Transferir ${pending.amount} ${pending.currency} para ${pending.beneficiary}?`);
-
-try {
-  await authyon.financialAuthorizations.confirm(authorizationId, {
-    method: "authenticator",
-    code: codeTypedByCustomer, // 6 dígitos do app autenticador
-  });
-  // Aprovado: avise seu backend para consumir e executar.
-} catch (cause) {
-  if (!(cause instanceof AuthyonError)) throw cause;
-
-  if (cause.is(ErrorCodes.InvalidSecondFactorCode)) {
-    showError(`Código inválido. Tentativas restantes: ${cause.extensions.attemptsRemaining}`);
-  } else if (cause.is(ErrorCodes.VerificationAttemptsExhausted)) {
-    showError("Muitas tentativas. A transação foi recusada; inicie novamente.");
-  } else if (cause.is(ErrorCodes.MethodNotEnrolled)) {
-    redirectToTwoFactorSetup();
-  } else {
-    throw cause;
-  }
+if (result.valid) {
+  // código correto: é o cliente — execute a operação
+} else {
+  // código errado
+  console.log(`Tentativas restantes: ${result.attemptsRemaining}`);
 }
 ```
 
-Se o cliente desistir, registre a recusa:
+Resposta:
 
-```ts
-await authyon.financialAuthorizations.reject(authorizationId);
+```jsonc
+// código correto
+{ "valid": true, "userId": "…", "method": "otp", "verifiedAt": "2026-10-01T12:00:03Z" }
+
+// código errado
+{ "valid": false, "attemptsRemaining": 3 }
 ```
 
-### Com passkey
+Regras aplicadas pelo Authyon:
 
-A passkey é o método mais forte (resistente a phishing) e gera `acr`
-`urn:authyon:loa:3`.
+- O código precisa ter 6 dígitos e valer para o momento atual (tolerância de ±30 s).
+- **Cada código é aceito uma única vez**: o mesmo código enviado de novo volta `valid: false`.
+- **5 erros seguidos bloqueiam a verificação por 15 minutos** para aquele usuário
+  (`rate_limited`, com `extensions.retryAfterSeconds`). Um acerto zera a contagem.
+- Toda tentativa é auditada (`user.two_factor.verified` / `user.two_factor.failed`).
+
+> O `customerId` deve vir da sessão validada no seu backend, nunca de um campo
+> enviado pelo navegador.
+
+### Exemplo em uma rota (Next.js)
+
+```ts
+// app/api/transfers/route.ts
+import { AuthyonError } from "@authyon/server";
+import { authyon } from "@/lib/authyon-server";
+
+export async function POST(request: Request) {
+  const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
+  const { valid, user } = token ? await authyon.validate(token) : { valid: false, user: null };
+  if (!valid || !user) return Response.json({ error: "unauthorized" }, { status: 401 });
+
+  const { code, amount, pixKey } = await request.json();
+
+  try {
+    const otp = await authyon.environment.users.verifyOtp(user.id, code);
+    if (!otp.valid)
+      return Response.json(
+        { error: "invalid_code", attemptsRemaining: otp.attemptsRemaining },
+        { status: 400 },
+      );
+  } catch (cause) {
+    if (cause instanceof AuthyonError && cause.code === "rate_limited")
+      return Response.json({ error: "locked", retryAfter: cause.extensions.retryAfterSeconds }, { status: 429 });
+    if (cause instanceof AuthyonError && cause.code === "method_not_enrolled")
+      return Response.json({ error: "enable_authenticator" }, { status: 400 });
+    throw cause;
+  }
+
+  await executePix({ amount, pixKey });
+  return Response.json({ status: "executed" });
+}
+```
+
+## Autorizações com payload
+
+Use quando a aprovação precisa ficar **presa a um conteúdo** e valer **uma única vez**.
+O `payload` é um objeto JSON livre — você decide o formato. O Authyon guarda, mostra
+de volta ao cliente e calcula um hash dele; o `consume` devolve exatamente o que foi
+aprovado.
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente
+    participant B as Seu backend
+    participant A as Authyon
+
+    B->>A: create({ subjectId, payload })
+    A-->>B: { id, status: "pending" }
+    C->>A: get(id) — mostra o payload
+    C->>A: confirm(id, { method: "authenticator", code })
+    A-->>C: { status: "approved" }
+    B->>A: consume(id)
+    A-->>B: { payload, assurance }
+    B->>B: Executa o payload aprovado
+```
+
+### 1. Backend cria
+
+```ts
+const authorization = await authyon.environment.financialAuthorizations.create({
+  subjectId: customer.id,
+  payload: {
+    type: "pix",
+    amount: 150.5,
+    to: { name: "Maria Silva", pixKey: "maria@example.com" },
+  },
+  expiresInSeconds: 300, // opcional, 60–600
+  idempotencyKey: orderId, // opcional, evita duplicar em retry
+});
+// devolva authorization.id ao frontend
+```
+
+| Campo              | Regra                                                                  |
+| ------------------ | ---------------------------------------------------------------------- |
+| `subjectId`        | obrigatório — o usuário que precisa aprovar                            |
+| `payload`          | opcional, qualquer objeto JSON de até 16 KiB (padrão `{}`)             |
+| `tenantId`         | opcional; exige que o cliente aprove numa sessão desse tenant          |
+| `expiresInSeconds` | opcional, entre 60 e 600 (padrão 300)                                  |
+| `idempotencyKey`   | opcional, até 128 caracteres; mesma chave + mesmo payload = mesmo `id` |
+
+### 2. Cliente aprova (`@authyon/auth`)
+
+```ts
+const pending = await authyon.financialAuthorizations.get(authorizationId);
+// mostre pending.payload ao cliente
+
+await authyon.financialAuthorizations.confirm(authorizationId, {
+  method: "authenticator",
+  code: "123456",
+});
+```
+
+Com passkey:
 
 ```ts
 const { ceremonyToken, optionsJson } =
   await authyon.financialAuthorizations.webauthnOptions(authorizationId);
-
 const credential = await navigator.credentials.get({
   publicKey: PublicKeyCredential.parseRequestOptionsFromJSON(JSON.parse(optionsJson)),
 });
-
 await authyon.financialAuthorizations.confirm(authorizationId, {
   method: "webauthn",
   webAuthn: { ceremonyToken, assertionJson: JSON.stringify(credential) },
 });
 ```
 
-### Backend com sessão (BFF)
+Para recusar: `authyon.financialAuthorizations.reject(authorizationId)`. Cada
+autorização aceita até 5 tentativas de código; depois é recusada
+(`verification_attempts_exhausted`).
 
-Se o token do cliente fica no seu servidor, use o mesmo fluxo pelo `@authyon/server`:
+Se o token do cliente fica no seu servidor (BFF), o mesmo está em
+`authyon.user(accessToken).financialAuthorizations`.
 
-```ts
-await authyon.user(customerAccessToken).financialAuthorizations.confirm(authorizationId, {
-  method: "authenticator",
-  code,
-});
-```
-
-### Confirmação sem código (sessão recente)
-
-`confirm(id)` sem o segundo argumento aprova somente se a sessão do cliente foi
-autenticada com passkey ou app autenticador **nos últimos 5 minutos**. Caso contrário
-a API responde `step_up_required`. Prefira enviar o código: a prova fica ligada à
-transação, não ao login.
-
-## 3. Backend: consumir antes de executar
+### 3. Backend consome e executa
 
 ```ts
-const result = await authyon.environment.financialAuthorizations.consume(
-  authorization.id,
-  transaction, // exatamente os mesmos campos enviados ao create
+const { payload, assurance } = await authyon.environment.financialAuthorizations.consume(
+  authorizationId,
 );
-
-// result.assurance → { acr, amr, authTime }: guarde como evidência da operação.
-await executeTransfer(transaction, { evidence: result.assurance });
+await execute(payload); // execute o payload devolvido, não um vindo do navegador
 ```
 
-- Só autorizações `approved` e dentro do prazo podem ser consumidas, e **uma única vez**.
-- Qualquer diferença em `action`, `amount`, `currency`, `beneficiary` ou `metadata`
-  falha com `transaction_mismatch`. O valor é normalizado para 4 casas e as chaves de
-  `metadata` são ordenadas, então `150.5` e `150.50` são equivalentes.
-- Para acompanhar o estado sem consumir, use `environment.financialAuthorizations.get(id)`.
+Se preferir que o Authyon confira o payload que você tem em mãos, envie-o:
+`consume(authorizationId, payloadSalvo)` — qualquer diferença falha com `payload_mismatch`.
+Só autorizações `approved` e dentro do prazo podem ser consumidas, e uma única vez.
 
-## Estados
+### Estados
 
-| Status     | Significado                                              |
-| ---------- | -------------------------------------------------------- |
-| `pending`  | aguardando o cliente                                     |
-| `approved` | cliente confirmou; pronto para `consume`                 |
-| `denied`   | cliente recusou ou esgotou as 5 tentativas de código     |
-| `consumed` | já usada pelo seu backend; não pode ser usada de novo    |
-| `expired`  | passou do `expiresInSeconds` sem ser aprovada/consumida  |
+| Status     | Significado                                           |
+| ---------- | ----------------------------------------------------- |
+| `pending`  | aguardando o cliente                                  |
+| `approved` | cliente aprovou; pronto para `consume`                |
+| `denied`   | cliente recusou ou esgotou as 5 tentativas            |
+| `consumed` | já usada; não pode ser usada de novo                  |
+| `expired`  | passou do prazo sem ser aprovada/consumida            |
 
 ## Erros
 
-Todos chegam como `AuthyonError`. Compare por `code` (ou pelas constantes de
-`ErrorCodes`); dados extras ficam em `error.extensions`.
+Todos chegam como `AuthyonError`; compare por `code` ou pelas constantes de `ErrorCodes`.
+Dados extras ficam em `error.extensions`.
 
-| `code`                            | Status | Quando                                                       | O que fazer                                        |
-| --------------------------------- | ------ | ------------------------------------------------------------ | -------------------------------------------------- |
-| `invalid_code`                    | 400    | código ou passkey não conferem                               | pedir de novo; ver `extensions.attemptsRemaining`  |
-| `verification_attempts_exhausted` | 409    | 5ª falha; a autorização virou `denied`                       | criar uma nova autorização                         |
-| `method_not_enrolled`             | 400    | cliente não tem esse fator cadastrado                        | conduzir o cadastro do autenticador/passkey        |
-| `step_up_required`                | 403    | `confirm` sem código e sessão não é recente/forte            | pedir o código ao cliente                          |
-| `invalid_authorization_state`     | 409    | autorização já decidida, consumida ou expirada               | ler `extensions.status`; criar nova se necessário  |
-| `transaction_mismatch`            | 400    | `consume` com transação diferente da aprovada                | **não executar**; investigar                       |
-| `authorization_not_consumable`    | 409    | `consume` de autorização não aprovada, expirada ou já usada  | **não executar**                                   |
-| `idempotency_conflict`            | 409    | mesma `idempotencyKey` com outra transação                   | usar outra chave                                   |
-| `invalid_request`                 | 400    | campo inválido (veja `detail`)                               | corrigir a entrada                                 |
-| `rate_limited`                    | 429    | mais de 20 confirmações em 5 minutos por cliente             | aguardar `retryAfter`                              |
+| `code`                            | Status | Quando                                                  |
+| --------------------------------- | ------ | ------------------------------------------------------- |
+| `method_not_enrolled`             | 400    | o cliente não tem app autenticador (ou passkey)         |
+| `rate_limited`                    | 429    | `verifyOtp` bloqueado após 5 erros seguidos             |
+| `user_not_found`                  | 404    | usuário não existe neste ambiente                       |
+| `user_disabled`                   | 403    | usuário desativado                                      |
+| `invalid_code`                    | 400    | `confirm` com código ou passkey errados                 |
+| `verification_attempts_exhausted` | 409    | 5ª falha no `confirm`; autorização recusada             |
+| `step_up_required`                | 403    | `confirm` sem código e sessão não recente/forte         |
+| `invalid_authorization_state`     | 409    | autorização já decidida, consumida ou expirada          |
+| `payload_mismatch`                | 400    | `consume` com payload diferente do aprovado             |
+| `authorization_not_consumable`    | 409    | `consume` de autorização não aprovada ou já usada       |
+| `idempotency_conflict`            | 409    | mesma `idempotencyKey` com outro payload                |
+| `invalid_request`                 | 400    | entrada inválida (veja `detail`)                        |
 
-## Segurança
-
-- **Sempre consuma antes de executar** e trate qualquer erro do `consume` como
-  "não executar".
-- **Mostre a transação** (valor e beneficiário vindos de `get`) antes de pedir o código,
-  para o cliente saber o que está aprovando.
-- Cada autorização aceita **até 5 tentativas** de código; depois disso é recusada.
-- Um código TOTP só é aceito uma vez — não é possível reutilizá-lo em outra autorização.
-- Guarde `assurance` (`acr`, `amr`, `authTime`) junto da operação como trilha de auditoria.
-  O Authyon também registra `user.two_factor.verified` / `user.two_factor.failed` com o id
-  da autorização.
-- A credencial com `authyon:financial:authorize` deve ficar só no backend que executa
-  as operações financeiras.
+Lembre-se: `verifyOtp` com código errado **não** lança erro — devolve `valid: false`.
 
 ## Referência HTTP
 
-Para integrações sem o SDK. Todas as chamadas levam o header `X-Authyon-Environment`.
+Todas as chamadas levam o header `X-Authyon-Environment`.
 
-| Quem    | Método e rota                                      | Autenticação                         |
-| ------- | -------------------------------------------------- | ------------------------------------ |
-| Backend | `POST /env/authorizations` + `Idempotency-Key`     | token de ambiente (client credentials) |
-| Backend | `GET /env/authorizations/{id}`                     | token de ambiente                    |
-| Backend | `POST /env/authorizations/{id}/consume`            | token de ambiente                    |
-| Cliente | `GET /auth/authorizations/{id}`                    | token do cliente                     |
-| Cliente | `POST /auth/authorizations/{id}/webauthn/options`  | token do cliente                     |
-| Cliente | `POST /auth/authorizations/{id}/confirm`           | token do cliente                     |
-| Cliente | `POST /auth/authorizations/{id}/reject`            | token do cliente                     |
-
-Corpo do `confirm`:
-
-```json
-{ "method": "authenticator", "code": "123456" }
-```
-
-```json
-{ "method": "webauthn", "webAuthn": { "ceremonyToken": "...", "assertionJson": "{...}" } }
-```
+| Quem    | Método e rota                                     | Autenticação          |
+| ------- | ------------------------------------------------- | --------------------- |
+| Backend | `POST /env/users/{userId}/otp/verify` `{ code }`  | token de ambiente     |
+| Backend | `POST /env/authorizations` (+ `Idempotency-Key`)  | token de ambiente     |
+| Backend | `GET /env/authorizations/{id}`                    | token de ambiente     |
+| Backend | `POST /env/authorizations/{id}/consume`           | token de ambiente     |
+| Cliente | `GET /auth/authorizations/{id}`                   | token do cliente      |
+| Cliente | `POST /auth/authorizations/{id}/webauthn/options` | token do cliente      |
+| Cliente | `POST /auth/authorizations/{id}/confirm`          | token do cliente      |
+| Cliente | `POST /auth/authorizations/{id}/reject`           | token do cliente      |

@@ -191,33 +191,27 @@ Chamadas server-side propagam `clientIp` em `X-Forwarded-For`. O middleware Expr
 await authyon.validate(token, { clientIp: "203.0.113.10" });
 ```
 
-## Confirmação de transações financeiras
+## Validar OTP e step-up
 
 Exige uma credencial de ambiente com o escopo `authyon:financial:authorize`. Guia
-completo, incluindo o lado do cliente: [`docs/financialStepUp.md`](../../docs/financialStepUp.md).
+completo: [`docs/financialStepUp.md`](../../docs/financialStepUp.md).
 
 ```ts
-const transaction = {
-  action: "pix.transfer",
-  amount: 150.5,
-  currency: "BRL",
-  beneficiary: "Maria Silva",
-};
+// Só validar o código do app autenticador
+const result = await authyon.environment.users.verifyOtp(customerId, code);
+if (!result.valid) console.log(result.attemptsRemaining);
 
-// 1. Antes de executar, peça a aprovação do cliente.
+// Aprovação presa a um payload livre e de uso único
 const { id } = await authyon.environment.financialAuthorizations.create({
-  ...transaction,
   subjectId: customerId,
-  idempotencyKey: orderId,
+  payload: { type: "pix", amount: 150.5, to: "maria@example.com" },
 });
-
-// 2. O cliente confirma com o código (@authyon/auth → financialAuthorizations.confirm).
-
-// 3. Consuma com a mesma transação e só então execute.
-const { assurance } = await authyon.environment.financialAuthorizations.consume(id, transaction);
+// ...cliente aprova com @authyon/auth → financialAuthorizations.confirm
+const { payload } = await authyon.environment.financialAuthorizations.consume(id);
 ```
 
-Se o seu servidor guarda o token do cliente (BFF), o lado do cliente também está em
+`verifyOtp` aceita cada código uma vez e bloqueia por 15 minutos após 5 erros seguidos.
+Se o seu servidor guarda o token do cliente (BFF), a aprovação também está em
 `authyon.user(accessToken).financialAuthorizations`.
 
 ## Administração por tenant (`tenant()`)

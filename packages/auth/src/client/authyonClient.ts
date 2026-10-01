@@ -647,9 +647,9 @@ export class AuthyonClient {
   // ── Financial step-up (customer side) ────────────────────────────────────
 
   /**
-   * Transaction-bound approvals created by your backend
+   * Payload-bound approvals created by your backend
    * (`@authyon/server` → `environment.financialAuthorizations.create`).
-   * Show the transaction with `get()`, then `confirm()` with the customer's
+   * Show the payload with `get()`, then `confirm()` with the customer's
    * authenticator code or passkey, or `reject()`.
    */
   readonly financialAuthorizations: SubjectFinancialAuthorizations = subjectFinancialAuthorizations(

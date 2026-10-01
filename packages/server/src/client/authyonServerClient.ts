@@ -18,7 +18,8 @@ import type {
   ConsumedFinancialAuthorization,
   CreateFinancialAuthorizationInput,
   FinancialAuthorization,
-  FinancialTransaction,
+  FinancialAuthorizationPayload,
+  OtpVerificationResult,
 } from "../contracts/financial";
 import { DEFAULT_BASE_URL } from "../../../../internal/core/config/defaults";
 import { ExpiringTokenProvider } from "../../../../internal/core/auth/expiringTokenProvider";
@@ -369,6 +370,19 @@ export class AuthyonServerClient {
           body: { reason },
         }),
 
+      /**
+       * POST /env/users/{userId}/otp/verify — checks the user's authenticator
+       * app (TOTP) code. Each code is accepted once; 5 consecutive failures
+       * lock the check for 15 minutes (`rate_limited`). Needs the
+       * `authyon:financial:authorize` scope.
+       */
+      verifyOtp: (userId: string, code: string): Promise<OtpVerificationResult> =>
+        this.request(`/env/users/${segment(userId)}/otp/verify`, {
+          method: "POST",
+          envBearer: true,
+          body: { code },
+        }),
+
       /** POST /env/users/{userId}/tenants — adds an environment user to a tenant. */
       assignTenant: (userId: string, tenantId: string, roles?: string[]): Promise<void> =>
         this.request(`/env/users/${encodeURIComponent(userId)}/tenants`, {
@@ -645,24 +659,22 @@ export class AuthyonServerClient {
     },
 
     /**
-     * Transaction-bound step-up for financial operations. The environment
-     * credential needs the `authyon:financial:authorize` scope.
+     * Payload-bound step-up: the customer approves an arbitrary JSON payload
+     * with their authenticator code or passkey. The environment credential
+     * needs the `authyon:financial:authorize` scope.
      *
-     * 1. `create()` the authorization for the transaction and the customer.
-     * 2. The customer approves it with their authenticator code or passkey
-     *    (`@authyon/auth` → `financialAuthorizations.confirm`).
-     * 3. `consume()` it with the same transaction right before executing it.
+     * 1. `create()` the authorization with the payload and the customer.
+     * 2. The customer approves it (`@authyon/auth` → `financialAuthorizations.confirm`).
+     * 3. `consume()` it right before executing, and execute the returned payload.
      */
     financialAuthorizations: {
-      /** POST /env/authorizations — registers a transaction awaiting the customer's approval. */
+      /** POST /env/authorizations — registers a payload awaiting the customer's approval. */
       create: (input: CreateFinancialAuthorizationInput): Promise<FinancialAuthorization> => {
         const { idempotencyKey, ...body } = input;
-        if (typeof idempotencyKey !== "string" || !idempotencyKey.trim())
-          throw new TypeError("Authyon: `idempotencyKey` is required.");
         return this.request("/env/authorizations", {
           method: "POST",
           envBearer: true,
-          headers: { "Idempotency-Key": idempotencyKey },
+          headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
           body,
         });
       },
@@ -673,17 +685,18 @@ export class AuthyonServerClient {
 
       /**
        * POST /env/authorizations/{id}/consume — redeems an approved
-       * authorization exactly once. Resend the same transaction given to
-       * `create()`; any difference fails with `transaction_mismatch`.
+       * authorization exactly once and returns the approved payload. Pass
+       * `payload` to have the API check it matches (`payload_mismatch`
+       * otherwise).
        */
       consume: (
         id: string,
-        transaction: FinancialTransaction,
+        payload?: FinancialAuthorizationPayload,
       ): Promise<ConsumedFinancialAuthorization> =>
         this.request(`/env/authorizations/${segment(id)}/consume`, {
           method: "POST",
           envBearer: true,
-          body: transaction,
+          body: payload === undefined ? undefined : { payload },
         }),
     },
 

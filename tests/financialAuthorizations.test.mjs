@@ -8,19 +8,17 @@ import {
   createMemoryStorage,
 } from "../packages/auth/dist/index.js";
 
-const transaction = {
-  action: "pix.transfer",
+const payload = {
+  type: "pix",
   amount: 150.5,
-  currency: "BRL",
-  beneficiary: "Maria Silva — 123.456.789-00",
-  metadata: { pixKey: "maria@example.com" },
+  to: { name: "Maria Silva", pixKey: "maria@example.com" },
 };
 const pending = {
   id: "auth/1",
   status: "pending",
   subjectId: "user-1",
-  ...transaction,
-  transactionHash: "a".repeat(64),
+  payload,
+  payloadHash: "a".repeat(64),
   createdAt: "2026-10-01T12:00:00Z",
   expiresAt: "2026-10-01T12:05:00Z",
 };
@@ -68,37 +66,63 @@ function authFixture(handler) {
 
 const header = (request, name) => new globalThis.Headers(request.headers).get(name);
 
-test("server creates with Idempotency-Key header and consumes with the same transaction", async () => {
+test("server creates with a free-form payload and consumes it", async () => {
   const { client, requests } = serverFixture();
   await client.environment.financialAuthorizations.create({
-    ...transaction,
     subjectId: "user-1",
+    payload,
     expiresInSeconds: 120,
     idempotencyKey: "order-42",
   });
   await client.environment.financialAuthorizations.get("auth/1");
-  await client.environment.financialAuthorizations.consume("auth/1", transaction);
+  await client.environment.financialAuthorizations.consume("auth/1", payload);
+  await client.environment.financialAuthorizations.consume("auth/1");
 
-  const [, create, get, consume] = requests;
+  const [, create, get, consume, consumeWithoutBody] = requests;
   assert.equal(create.url, "https://api.authyon.com/env/authorizations");
   assert.equal(header(create, "idempotency-key"), "order-42");
   assert.equal(header(create, "authorization"), "Bearer environment-token");
   assert.deepEqual(JSON.parse(create.body), {
-    ...transaction,
     subjectId: "user-1",
+    payload,
     expiresInSeconds: 120,
   });
   assert.equal(get.url, "https://api.authyon.com/env/authorizations/auth%2F1");
   assert.equal(consume.url, "https://api.authyon.com/env/authorizations/auth%2F1/consume");
-  assert.deepEqual(JSON.parse(consume.body), transaction);
+  assert.deepEqual(JSON.parse(consume.body), { payload });
+  assert.equal(consumeWithoutBody.body, undefined);
 });
 
-test("server create requires an idempotency key", () => {
-  const { client } = serverFixture();
-  assert.throws(
-    () => client.environment.financialAuthorizations.create({ ...transaction, subjectId: "u" }),
-    TypeError,
+test("server create works without an idempotency key", async () => {
+  const { client, requests } = serverFixture();
+  await client.environment.financialAuthorizations.create({ subjectId: "u" });
+  assert.equal(header(requests[1], "idempotency-key"), null);
+  assert.deepEqual(JSON.parse(requests[1].body), { subjectId: "u" });
+});
+
+test("verifyOtp posts the code for the user and returns the verdict", async () => {
+  const { client, requests } = serverFixture((request) =>
+    JSON.parse(request.body).code === "123456"
+      ? globalThis.Response.json({ valid: true, userId: "user/1", method: "otp", verifiedAt: "x" })
+      : globalThis.Response.json({ valid: false, attemptsRemaining: 4 }),
   );
+  assert.equal((await client.environment.users.verifyOtp("user/1", "123456")).valid, true);
+  assert.deepEqual(await client.environment.users.verifyOtp("user/1", "000000"), {
+    valid: false,
+    attemptsRemaining: 4,
+  });
+  assert.equal(requests[1].url, "https://api.authyon.com/env/users/user%2F1/otp/verify");
+  assert.equal(header(requests[1], "authorization"), "Bearer environment-token");
+});
+
+test("verifyOtp lockout surfaces as rate_limited with retryAfterSeconds", async () => {
+  const { client } = serverFixture(() =>
+    globalThis.Response.json({ error: "rate_limited", retryAfterSeconds: 900 }, { status: 429 }),
+  );
+  const error = await client.environment.users.verifyOtp("u", "123456").catch((cause) => cause);
+  assert.equal(error.code, ErrorCodes.RateLimited);
+  assert.equal(error.extensions.retryAfterSeconds, 900);
+  assert.equal(error.retryable, true);
 });
 
 test("customer confirms with an authenticator code using their own bearer", async () => {

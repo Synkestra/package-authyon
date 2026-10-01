@@ -273,14 +273,15 @@ Métodos de sessão/auth ficam soltos no client; os que giram em torno de um rec
 | `sso.startUrl(provider, params)` | monta a URL de `GET /auth/sso/{provider}/start` (não faz a chamada — navegue até ela) |
 | `sso.exchange(code)`             | `POST /auth/sso/exchange`                                                             |
 
-### `authyon.financialAuthorizations` (confirmação de transações)
+### `authyon.financialAuthorizations` (aprovação com OTP/passkey)
 
-O cliente aprova uma transação criada pelo seu backend com o código do app autenticador
-ou a passkey. Guia completo: [`docs/financialStepUp.md`](../../docs/financialStepUp.md).
+O cliente aprova uma autorização criada pelo seu backend (com um `payload` livre) usando o
+código do app autenticador ou a passkey. Para só validar um código, use
+`environment.users.verifyOtp` no `@authyon/server`. Guia completo: [`docs/financialStepUp.md`](../../docs/financialStepUp.md).
 
 ```ts
 const pending = await authyon.financialAuthorizations.get(authorizationId);
-// mostre pending.amount, pending.currency e pending.beneficiary ao cliente
+// mostre pending.payload ao cliente
 await authyon.financialAuthorizations.confirm(authorizationId, {
   method: "authenticator",
   code: "123456",
