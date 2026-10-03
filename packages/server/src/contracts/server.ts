@@ -183,8 +183,15 @@ export interface UpdateOrganizationInput {
 
 export interface CreateUserInput {
   email: string;
-  username: string;
+  /**
+   * Same contract as `/auth/register`: optional only when the environment's
+   * username policy is `AutoFromEmail` (derived from the email). Collisions
+   * resolve by that policy.
+   */
+  username?: string;
   password: string;
+  firstName?: string;
+  lastName?: string;
   /** Values for custom user fields configured in the environment. */
   customFields?: Record<string, unknown>;
   emailConfirmed?: boolean;
