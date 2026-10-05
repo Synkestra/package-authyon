@@ -39,6 +39,76 @@ export interface InviteMemberInput {
   roles: string[];
 }
 
+/**
+ * POST /auth/tenants/{organizationId}/invites — invite an address that may not
+ * have an account yet; accepting creates it. `sendEmail` defaults to `true`;
+ * `false` only returns the link, for delivery through your own channel.
+ */
+export interface OrganizationInviteInput {
+  email: string;
+  roles?: string[];
+  sendEmail?: boolean;
+}
+
+/** Returned when an invite is created or re-issued. `acceptUrl` is only ever
+ *  readable here — the API keeps a hash of the token, not the token. */
+export interface OrganizationInviteIssued {
+  id: string;
+  tenantId: string;
+  email: string;
+  roles: string[];
+  acceptUrl: string;
+  expiresAt: string;
+  emailSent: boolean;
+}
+
+export type OrganizationInviteStatus = "pending" | "accepted" | "revoked" | "expired";
+
+export interface OrganizationInvite {
+  id: string;
+  tenantId: string;
+  email: string;
+  roles: string[];
+  status: OrganizationInviteStatus;
+  createdAt: string;
+  expiresAt: string;
+  emailSentAt: string | null;
+  acceptedAt: string | null;
+  acceptedByUserId: string | null;
+  revokedAt: string | null;
+  invitedByUserId: string | null;
+}
+
+/** POST /auth/tenant-invites/preview — what an accept page shows before the invitee commits. */
+export interface OrganizationInvitePreview {
+  tenantId: string;
+  tenantName: string;
+  email: string;
+  roles: string[];
+  expiresAt: string;
+  /** True: accepting only needs the token. False: send a password (and a username when `usernameRequired`). */
+  accountExists: boolean;
+  usernameRequired: boolean;
+}
+
+/** POST /auth/tenant-invites/accept — everything but `token` is ignored when the address already has an account. */
+export interface AcceptOrganizationInviteInput {
+  token: string;
+  username?: string;
+  password?: string;
+  firstName?: string;
+  lastName?: string;
+  customFields?: Record<string, unknown>;
+}
+
+export interface OrganizationInviteAccepted {
+  tenantId: string;
+  tenantName: string;
+  userId: string;
+  /** True when accepting created the account (email already confirmed). The invitee still signs in normally. */
+  accountCreated: boolean;
+}
+
 /** Authenticated user profile. */
 export interface User {
   id: string;

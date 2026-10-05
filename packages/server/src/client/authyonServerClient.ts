@@ -1,5 +1,11 @@
 import type {
   AccessTokenSource,
+  AcceptTenantInviteInput,
+  TenantInvite,
+  TenantInviteAccepted,
+  TenantInviteInput,
+  TenantInviteIssued,
+  TenantInvitePreview,
   CreateCredentialInput,
   CredentialDetail,
   CredentialListOptions,
@@ -557,6 +563,64 @@ export class AuthyonServerClient {
           ),
       },
 
+      /**
+       * Invites by e-mail or by link — for addresses that may not have an
+       * account yet; accepting creates it. Managing them needs the
+       * credential's `authyon:users:write` scope (listing, `authyon:tenants:read`).
+       */
+      invites: {
+        /** GET /env/tenants/{tenantId}/invites — every invite with its status, newest first. */
+        list: (tenantId: string): Promise<TenantInvite[]> =>
+          this.request(`/env/tenants/${encodeURIComponent(tenantId)}/invites`, { envBearer: true }),
+
+        /**
+         * POST /env/tenants/{tenantId}/invites — invite an address. Always
+         * returns `acceptUrl`; with `sendEmail: false` Authyon does not mail
+         * it and you deliver the link yourself. Valid 7 days, single use, and
+         * not readable again later.
+         */
+        create: (tenantId: string, input: TenantInviteInput): Promise<TenantInviteIssued> =>
+          this.request(`/env/tenants/${encodeURIComponent(tenantId)}/invites`, {
+            method: "POST",
+            envBearer: true,
+            body: { email: input.email, roles: input.roles, sendEmail: input.sendEmail ?? true },
+          }),
+
+        /** POST .../invites/{inviteId}/resend — new link (the previous one stops working), mailed unless `sendEmail` is `false`. */
+        resend: (
+          tenantId: string,
+          inviteId: string,
+          input: { sendEmail?: boolean } = {},
+        ): Promise<TenantInviteIssued> =>
+          this.request(
+            `/env/tenants/${encodeURIComponent(tenantId)}/invites/${encodeURIComponent(inviteId)}/resend`,
+            { method: "POST", envBearer: true, body: { sendEmail: input.sendEmail ?? true } },
+          ),
+
+        /** DELETE /env/tenants/{tenantId}/invites/{inviteId} — revoke a pending invite. */
+        revoke: (tenantId: string, inviteId: string): Promise<void> =>
+          this.request(
+            `/env/tenants/${encodeURIComponent(tenantId)}/invites/${encodeURIComponent(inviteId)}`,
+            { method: "DELETE", envBearer: true },
+          ),
+
+        /**
+         * POST /auth/tenant-invites/preview — for a backend hosting the accept
+         * page. Public: needs only `envKey`, the token is the credential.
+         */
+        preview: (token: string): Promise<TenantInvitePreview> =>
+          this.request("/auth/tenant-invites/preview", { method: "POST", body: { token } }),
+
+        /**
+         * POST /auth/tenant-invites/accept — public, needs only `envKey`.
+         * Joins the tenant; for an address with no account, also creates it
+         * (password required) with the e-mail already confirmed. Does not
+         * sign the user in.
+         */
+        accept: (input: AcceptTenantInviteInput): Promise<TenantInviteAccepted> =>
+          this.request("/auth/tenant-invites/accept", { method: "POST", body: input }),
+      },
+
       roles: {
         /** GET /env/tenants/{tenantId}/roles — list a tenant's roles. */
         list: (tenantId: string): Promise<Role[]> =>
@@ -788,6 +852,30 @@ export class TenantScopedClient {
   async validate(context?: ClientRequestContext): Promise<TenantClientValidationResult> {
     return this.server.tenantAuth.validate(await this.getAccessToken(), context);
   }
+
+  /** Invites to the token's tenant, by e-mail or by link. */
+  readonly invites = {
+    /** GET /tenant/invites — every invite with its status, newest first. */
+    list: (): Promise<TenantInvite[]> => this.request("/tenant/invites"),
+
+    /** POST /tenant/invites — always returns `acceptUrl`; `sendEmail: false` skips the e-mail. */
+    create: (input: TenantInviteInput): Promise<TenantInviteIssued> =>
+      this.request("/tenant/invites", {
+        method: "POST",
+        body: { email: input.email, roles: input.roles, sendEmail: input.sendEmail ?? true },
+      }),
+
+    /** POST /tenant/invites/{inviteId}/resend — new link (the previous one stops working), mailed unless `sendEmail` is `false`. */
+    resend: (inviteId: string, input: { sendEmail?: boolean } = {}): Promise<TenantInviteIssued> =>
+      this.request(`/tenant/invites/${encodeURIComponent(inviteId)}/resend`, {
+        method: "POST",
+        body: { sendEmail: input.sendEmail ?? true },
+      }),
+
+    /** DELETE /tenant/invites/{inviteId} — revoke a pending invite. */
+    revoke: (inviteId: string): Promise<void> =>
+      this.request(`/tenant/invites/${encodeURIComponent(inviteId)}`, { method: "DELETE" }),
+  };
 
   readonly members = {
     /**

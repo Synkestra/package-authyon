@@ -239,6 +239,19 @@ Métodos de sessão/auth ficam soltos no client; os que giram em torno de um rec
 | `organization.members.invite(organizationId, params)` | `POST /auth/tenants/{id}/members`              |
 | `organization.members.remove(organizationId, userId)` | `DELETE /auth/tenants/{id}/members/{userId}`   |
 | `organization.roles.list(organizationId)`             | `GET /auth/tenants/{id}/roles`                 |
+| `organization.invites.list(organizationId)`           | `GET /auth/tenants/{id}/invites`               |
+| `organization.invites.create(organizationId, params)` | `POST /auth/tenants/{id}/invites`              |
+| `organization.invites.resend(organizationId, inviteId, params?)` | `POST /auth/tenants/{id}/invites/{inviteId}/resend` |
+| `organization.invites.revoke(organizationId, inviteId)` | `DELETE /auth/tenants/{id}/invites/{inviteId}` |
+| `organization.invites.preview(token)`                 | `POST /auth/tenant-invites/preview` (público)  |
+| `organization.invites.accept(params)`                 | `POST /auth/tenant-invites/accept` (público)   |
+
+`organization.members.invite` adiciona um usuário que já existe no ambiente. Para convidar
+um e-mail que talvez ainda não tenha conta, use `organization.invites.create`: a resposta
+sempre traz o `acceptUrl` completo e `sendEmail: false` só gera o link, sem enviar e-mail.
+O link vale 7 dias, uma única vez, e não pode ser lido de novo depois. Na página de aceite,
+leia o `token` da URL, chame `preview(token)` e, se `accountExists` for falso, peça senha
+(e usuário quando `usernameRequired`) antes de `accept`. Aceitar não faz login.
 
 ### `authyon.twoFactor`
 

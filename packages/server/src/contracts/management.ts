@@ -41,3 +41,66 @@ export interface TenantMember {
   lastLoginAt: string | null;
 }
 export type TenantMemberPage = Paged<TenantMember>;
+
+/**
+ * Invite an address to a tenant. The address may not have an account in the
+ * environment yet — accepting creates it. `sendEmail` defaults to `true`;
+ * `false` only returns the link, for delivery through your own channel.
+ */
+export interface TenantInviteInput {
+  email: string;
+  roles?: string[];
+  sendEmail?: boolean;
+}
+/** Returned when an invite is created or re-issued. `acceptUrl` is only ever
+ *  readable here — the API keeps a hash of the token, not the token. */
+export interface TenantInviteIssued {
+  id: string;
+  tenantId: string;
+  email: string;
+  roles: string[];
+  acceptUrl: string;
+  expiresAt: string;
+  emailSent: boolean;
+}
+export type TenantInviteStatus = "pending" | "accepted" | "revoked" | "expired";
+export interface TenantInvite {
+  id: string;
+  tenantId: string;
+  email: string;
+  roles: string[];
+  status: TenantInviteStatus;
+  createdAt: string;
+  expiresAt: string;
+  emailSentAt: string | null;
+  acceptedAt: string | null;
+  acceptedByUserId: string | null;
+  revokedAt: string | null;
+  invitedByUserId: string | null;
+}
+/** What an accept page shows before the invitee commits. */
+export interface TenantInvitePreview {
+  tenantId: string;
+  tenantName: string;
+  email: string;
+  roles: string[];
+  expiresAt: string;
+  /** True: accepting only needs the token. False: send a password (and a username when `usernameRequired`). */
+  accountExists: boolean;
+  usernameRequired: boolean;
+}
+/** Redeem an invite. Everything but `token` is ignored when the address already has an account. */
+export interface AcceptTenantInviteInput {
+  token: string;
+  username?: string;
+  password?: string;
+  firstName?: string;
+  lastName?: string;
+  customFields?: Record<string, unknown>;
+}
+export interface TenantInviteAccepted {
+  tenantId: string;
+  tenantName: string;
+  userId: string;
+  accountCreated: boolean;
+}

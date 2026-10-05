@@ -374,11 +374,48 @@ await authyon.environment.tenants.members.remove(tenantId, userId);
 // Os métodos tenant(credentials).members.add/remove existentes continuam disponíveis.
 ```
 
-Configure `envKey` para `user()`. O convite de tenant associa um usuário já
+Configure `envKey` para `user()`. `members.invite` associa um usuário já
 cadastrado no ambiente pelo e-mail; não cria conta e não envia link por e-mail.
+Para isso, use os convites abaixo.
 A API exige associação/permissões do usuário chamador. No browser, os métodos
 existentes `@authyon/auth` → `organization.members.invite/remove` continuam
 atendendo esse fluxo. Nunca importe `@authyon/server` no browser.
+
+## Convites de tenant (e-mail ou link)
+
+Convide um e-mail que talvez ainda não tenha conta — aceitar cria a conta, já com o
+e-mail confirmado. A resposta sempre traz o `acceptUrl` completo; `sendEmail: false`
+só gera o link para você enviar pelo seu canal.
+
+```ts
+// Pelo ambiente (escopo authyon:users:write; listar exige authyon:tenants:read).
+const invite = await authyon.environment.tenants.invites.create(tenantId, {
+  email: "pessoa@example.com",
+  roles: ["reader"],
+  sendEmail: false, // padrão: true
+});
+invite.acceptUrl; // só aparece aqui — a API guarda apenas o hash do token
+
+await authyon.environment.tenants.invites.list(tenantId);
+await authyon.environment.tenants.invites.resend(tenantId, invite.id, { sendEmail: true });
+await authyon.environment.tenants.invites.revoke(tenantId, invite.id);
+
+// Pela credencial do tenant, ou agindo como o usuário (permissão tenants:members:invite).
+await authyon.tenant(credentials).invites.create({ email: "pessoa@example.com" });
+await authyon.user(token).tenants.invites.create(tenantId, { email: "pessoa@example.com" });
+
+// Página de aceite no seu backend: públicas, usam só o envKey.
+const preview = await authyon.environment.tenants.invites.preview(token);
+await authyon.environment.tenants.invites.accept({
+  token,
+  password: preview.accountExists ? undefined : password,
+});
+```
+
+O link vale 7 dias e uma única vez. `resend` gera um link novo e invalida o anterior.
+Por padrão o link aponta para a página do Authyon; configure a *URL do convite para
+tenant* nas configurações do ambiente para usar a sua (ela recebe `token` e `env`).
+Aceitar não faz login.
 
 ## Compatibilidade e segurança do transporte
 

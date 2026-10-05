@@ -2,6 +2,9 @@ import type { JsonRequestOptions } from "../../../../internal/core/http/jsonHttp
 import type {
   AccessTokenSource,
   InviteTenantMemberInput,
+  TenantInvite,
+  TenantInviteInput,
+  TenantInviteIssued,
   TenantMember,
   TenantMemberPage,
 } from "../contracts/management";
@@ -48,6 +51,34 @@ export class UserScopedClient {
         }),
       remove: (tenantId: string, userId: string): Promise<void> =>
         this.#request(`/auth/tenants/${segment(tenantId)}/members/${segment(userId)}`, {
+          method: "DELETE",
+        }),
+    },
+    /**
+     * Invites by e-mail or by link, acting as the user. Requires the
+     * `tenants:members:invite` permission on the tenant.
+     */
+    invites: {
+      list: (tenantId: string): Promise<TenantInvite[]> =>
+        this.#request(`/auth/tenants/${segment(tenantId)}/invites`),
+      /** Always returns `acceptUrl`; `sendEmail: false` skips the e-mail. */
+      create: (tenantId: string, input: TenantInviteInput): Promise<TenantInviteIssued> =>
+        this.#request(`/auth/tenants/${segment(tenantId)}/invites`, {
+          method: "POST",
+          body: { email: input.email, roles: input.roles, sendEmail: input.sendEmail ?? true },
+        }),
+      /** New link (the previous one stops working), mailed unless `sendEmail` is `false`. */
+      resend: (
+        tenantId: string,
+        inviteId: string,
+        input: { sendEmail?: boolean } = {},
+      ): Promise<TenantInviteIssued> =>
+        this.#request(`/auth/tenants/${segment(tenantId)}/invites/${segment(inviteId)}/resend`, {
+          method: "POST",
+          body: { sendEmail: input.sendEmail ?? true },
+        }),
+      revoke: (tenantId: string, inviteId: string): Promise<void> =>
+        this.#request(`/auth/tenants/${segment(tenantId)}/invites/${segment(inviteId)}`, {
           method: "DELETE",
         }),
     },

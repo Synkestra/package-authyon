@@ -4,6 +4,20 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 
 ## Não publicado
 
+### Adicionado
+
+- Convites de tenant por e-mail ou por link, para endereços que ainda podem não ter conta
+  (aceitar cria a conta com o e-mail já confirmado). A criação sempre devolve o
+  `acceptUrl` completo; `sendEmail: false` só gera o link.
+  - `@authyon/auth`: `organization.invites` (`list`, `create`, `resend`, `revoke`) e as
+    chamadas públicas `preview(token)` e `accept(params)` para a página de aceite.
+  - `@authyon/server`: `environment.tenants.invites` (`list`, `create`, `resend`,
+    `revoke`, `preview`, `accept`), `tenant(credentials).invites` e
+    `user(token).tenants.invites`.
+  - Tipos `TenantInvite*`/`AcceptTenantInviteInput` (`@authyon/server`) e
+    `OrganizationInvite*`/`AcceptOrganizationInviteInput` (`@authyon/auth`).
+- Requer a API com a migração `TenantInvites`.
+
 ## 0.2.0-beta.15
 
 ### Adicionado

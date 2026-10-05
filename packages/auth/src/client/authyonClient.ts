@@ -24,6 +24,12 @@ import type {
   CreateOrganizationInput,
   IntrospectResult,
   InviteMemberInput,
+  AcceptOrganizationInviteInput,
+  OrganizationInvite,
+  OrganizationInviteAccepted,
+  OrganizationInviteInput,
+  OrganizationInviteIssued,
+  OrganizationInvitePreview,
   LoginInput,
   LoginResult,
   OrganizationMember,
@@ -521,7 +527,11 @@ export class AuthyonClient {
           { bearer: true },
         ),
 
-      /** POST /auth/tenants/{organizationId}/members — invite a member by e-mail. */
+      /**
+       * POST /auth/tenants/{organizationId}/members — add an existing
+       * environment user by e-mail (no e-mail is sent). To invite an address
+       * that may not have an account yet, use `organization.invites.create`.
+       */
       invite: (organizationId: string, params: InviteMemberInput): Promise<void> =>
         this.request(`/auth/tenants/${encodeURIComponent(organizationId)}/members`, {
           method: "POST",
@@ -535,6 +545,73 @@ export class AuthyonClient {
           `/auth/tenants/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(userId)}`,
           { method: "DELETE", bearer: true },
         ),
+    },
+
+    /**
+     * Invites by e-mail or by link. Managing them requires the
+     * `tenants:members:invite` permission on the organization; `preview` and
+     * `accept` are public — the token in the link is the credential.
+     */
+    invites: {
+      /** GET /auth/tenants/{organizationId}/invites — every invite with its status, newest first. */
+      list: (organizationId: string): Promise<OrganizationInvite[]> =>
+        this.request(`/auth/tenants/${encodeURIComponent(organizationId)}/invites`, {
+          bearer: true,
+        }),
+
+      /**
+       * POST /auth/tenants/{organizationId}/invites — invite an address.
+       * Always returns `acceptUrl`; with `sendEmail: false` Authyon does not
+       * mail it and you deliver the link yourself. The link is valid for 7
+       * days, once, and can't be read again later.
+       */
+      create: (
+        organizationId: string,
+        params: OrganizationInviteInput,
+      ): Promise<OrganizationInviteIssued> =>
+        this.request(`/auth/tenants/${encodeURIComponent(organizationId)}/invites`, {
+          method: "POST",
+          bearer: true,
+          body: { email: params.email, roles: params.roles, sendEmail: params.sendEmail ?? true },
+        }),
+
+      /**
+       * POST /auth/tenants/{organizationId}/invites/{inviteId}/resend — issue
+       * a new link (the previous one stops working), mailing it unless
+       * `sendEmail` is `false`.
+       */
+      resend: (
+        organizationId: string,
+        inviteId: string,
+        params: { sendEmail?: boolean } = {},
+      ): Promise<OrganizationInviteIssued> =>
+        this.request(
+          `/auth/tenants/${encodeURIComponent(organizationId)}/invites/${encodeURIComponent(inviteId)}/resend`,
+          { method: "POST", bearer: true, body: { sendEmail: params.sendEmail ?? true } },
+        ),
+
+      /** DELETE /auth/tenants/{organizationId}/invites/{inviteId} — revoke a pending invite. */
+      revoke: (organizationId: string, inviteId: string): Promise<void> =>
+        this.request(
+          `/auth/tenants/${encodeURIComponent(organizationId)}/invites/${encodeURIComponent(inviteId)}`,
+          { method: "DELETE", bearer: true },
+        ),
+
+      /**
+       * POST /auth/tenant-invites/preview — public. Read the `token` query
+       * parameter of the invite link and pick the form: one click when
+       * `accountExists`, sign-up otherwise.
+       */
+      preview: (token: string): Promise<OrganizationInvitePreview> =>
+        this.request("/auth/tenant-invites/preview", { method: "POST", body: { token } }),
+
+      /**
+       * POST /auth/tenant-invites/accept — public. Joins the organization; for
+       * an address with no account, also creates it (password required) with
+       * the e-mail already confirmed. Does not sign the user in.
+       */
+      accept: (params: AcceptOrganizationInviteInput): Promise<OrganizationInviteAccepted> =>
+        this.request("/auth/tenant-invites/accept", { method: "POST", body: params }),
     },
 
     roles: {
