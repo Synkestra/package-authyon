@@ -617,13 +617,23 @@ export class AuthyonServerClient {
           this.request("/auth/tenant-invites/preview", { method: "POST", body: { token } }),
 
         /**
-         * POST /auth/tenant-invites/accept — public, needs only `envKey`.
          * Joins the tenant; for an address with no account, also creates it
          * (password required) with the e-mail already confirmed. Does not
          * sign the user in.
+         *
+         * Without metadata: POST /auth/tenant-invites/accept — public, needs
+         * only `envKey`. With `publicMetadata`/`privateMetadata`: POST
+         * /env/tenant-invites/accept with the environment credential
+         * (`authyon:users:write`), since only your backend may set them.
          */
         accept: (input: AcceptTenantInviteInput): Promise<TenantInviteAccepted> =>
-          this.request("/auth/tenant-invites/accept", { method: "POST", body: input }),
+          input.publicMetadata !== undefined || input.privateMetadata !== undefined
+            ? this.request("/env/tenant-invites/accept", {
+                method: "POST",
+                envBearer: true,
+                body: input,
+              })
+            : this.request("/auth/tenant-invites/accept", { method: "POST", body: input }),
       },
 
       roles: {

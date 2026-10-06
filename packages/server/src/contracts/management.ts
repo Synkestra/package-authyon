@@ -99,14 +99,30 @@ export interface TenantInvitePreview {
   /** Where the issuer asked to send the invitee after accepting, or `null`. */
   redirectUri: string | null;
 }
-/** Redeem an invite. Everything but `token` is ignored when the address already has an account. */
+/**
+ * Redeem an invite. For an address that already has an account only `token`
+ * and the metadata are used; the rest is for creating the account.
+ */
 export interface AcceptTenantInviteInput {
   token: string;
   username?: string;
   password?: string;
   firstName?: string;
   lastName?: string;
+  /**
+   * @deprecated Use `publicMetadata` / `privateMetadata`. Still sent and
+   * validated against the environment's user field schema for now.
+   */
   customFields?: Record<string, unknown>;
+  /**
+   * Replaces the user's public metadata (readable by the user). Requires the
+   * client credentials (`clientId`/`clientSecret`) with `authyon:users:write`:
+   * when this or `privateMetadata` is set, `accept` calls
+   * `POST /env/tenant-invites/accept` instead of the public route.
+   */
+  publicMetadata?: Record<string, unknown>;
+  /** Replaces the user's private metadata (server-only). Same requirement as `publicMetadata`. */
+  privateMetadata?: Record<string, unknown>;
 }
 export interface TenantInviteAccepted {
   tenantId: string;

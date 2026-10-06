@@ -412,6 +412,11 @@ const preview = await authyon.environment.tenants.invites.preview(token);
 const accepted = await authyon.environment.tenants.invites.accept({
   token,
   password: preview.accountExists ? undefined : password,
+  // Opcional. Com metadata, a chamada vai para /env/tenant-invites/accept usando
+  // clientId/clientSecret (escopo authyon:users:write) — só o backend pode definir.
+  publicMetadata: { plano: "pro" },
+  privateMetadata: { crmId: "42" },
+  // customFields: { ... } — obsoleto, prefira os metadata acima.
 });
 if (accepted.redirectUri) redirect(accepted.redirectUri); // o redirect fica por sua conta
 ```

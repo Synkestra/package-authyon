@@ -73,6 +73,26 @@ test("invite preview and accept are public: environment key, no bearer", async (
   }
 });
 
+test("accepting with metadata goes through /env with the environment credential", async () => {
+  const { client, requests } = serverFixture();
+  await client.environment.tenants.invites.accept({
+    token: "tok",
+    password: "s3cret-pass",
+    publicMetadata: { plan: "pro" },
+    privateMetadata: { crmId: "42" },
+  });
+
+  const [accept] = requests();
+  assert.equal(accept.url, "https://api.authyon.com/env/tenant-invites/accept");
+  assert.equal(header(accept, "authorization"), "Bearer environment-token");
+  assert.deepEqual(JSON.parse(accept.body), {
+    token: "tok",
+    password: "s3cret-pass",
+    publicMetadata: { plan: "pro" },
+    privateMetadata: { crmId: "42" },
+  });
+});
+
 test("user-scoped invites act as the user on /auth", async () => {
   const { client, requests } = serverFixture();
   const user = client.user(async () => "user-token");

@@ -108,6 +108,11 @@ export interface AcceptOrganizationInviteInput {
   password?: string;
   firstName?: string;
   lastName?: string;
+  /**
+   * @deprecated Use `publicMetadata` / `privateMetadata` through
+   * `@authyon/server` (`environment.tenants.invites.accept`), which runs on
+   * your backend with the environment credential. Still accepted for now.
+   */
   customFields?: Record<string, unknown>;
 }
 

@@ -22,6 +22,19 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 - Convidar um endereço que já é membro do tenant não dá mais erro (aceitar só mescla os
   papéis novos), e `resend` num convite já aceito emite um convite novo com o mesmo
   e-mail, papéis e `redirectUri` (o `id` retornado é o do convite novo).
+- `@authyon/server`: `environment.tenants.invites.accept` aceita `publicMetadata` e
+  `privateMetadata`. Quando algum deles é enviado, a chamada vai para
+  `POST /env/tenant-invites/accept` com a credencial do ambiente (`authyon:users:write`);
+  sem eles, continua na rota pública só com o `envKey`.
+
+### Obsoleto
+
+- `customFields` no aceite de convite (`AcceptTenantInviteInput` e
+  `AcceptOrganizationInviteInput`). Ainda funciona; use `publicMetadata`/`privateMetadata`
+  pelo `@authyon/server`.
+
+### Requisitos
+
 - Requer a API com as migrações `TenantInvites` e `TenantInviteRedirectUri`.
 
 ## 0.2.0-beta.15
