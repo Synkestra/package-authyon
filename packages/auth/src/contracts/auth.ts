@@ -48,6 +48,12 @@ export interface OrganizationInviteInput {
   email: string;
   roles?: string[];
   sendEmail?: boolean;
+  /**
+   * Where to send the invitee after they accept. Must be registered exactly in
+   * the environment's redirect URIs (the same list SSO and magic link use);
+   * otherwise the API rejects the invite. Comes back on `preview` and `accept`.
+   */
+  redirectUri?: string;
 }
 
 /** Returned when an invite is created or re-issued. `acceptUrl` is only ever
@@ -60,6 +66,7 @@ export interface OrganizationInviteIssued {
   acceptUrl: string;
   expiresAt: string;
   emailSent: boolean;
+  redirectUri: string | null;
 }
 
 export type OrganizationInviteStatus = "pending" | "accepted" | "revoked" | "expired";
@@ -77,6 +84,7 @@ export interface OrganizationInvite {
   acceptedByUserId: string | null;
   revokedAt: string | null;
   invitedByUserId: string | null;
+  redirectUri: string | null;
 }
 
 /** POST /auth/tenant-invites/preview — what an accept page shows before the invitee commits. */
@@ -89,6 +97,8 @@ export interface OrganizationInvitePreview {
   /** True: accepting only needs the token. False: send a password (and a username when `usernameRequired`). */
   accountExists: boolean;
   usernameRequired: boolean;
+  /** Where the issuer asked to send the invitee after accepting, or `null`. */
+  redirectUri: string | null;
 }
 
 /** POST /auth/tenant-invites/accept — everything but `token` is ignored when the address already has an account. */
@@ -107,6 +117,8 @@ export interface OrganizationInviteAccepted {
   userId: string;
   /** True when accepting created the account (email already confirmed). The invitee still signs in normally. */
   accountCreated: boolean;
+  /** Where the issuer asked to send the invitee, or `null`. Redirecting is up to the accept page. */
+  redirectUri: string | null;
 }
 
 /** Authenticated user profile. */

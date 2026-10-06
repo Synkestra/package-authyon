@@ -393,6 +393,9 @@ const invite = await authyon.environment.tenants.invites.create(tenantId, {
   email: "pessoa@example.com",
   roles: ["reader"],
   sendEmail: false, // padrão: true
+  // Opcional: para onde mandar a pessoa depois de aceitar. Precisa estar
+  // cadastrado (match exato) nos redirect URIs do ambiente.
+  redirectUri: "https://app.example.com/bem-vindo",
 });
 invite.acceptUrl; // só aparece aqui — a API guarda apenas o hash do token
 
@@ -406,15 +409,16 @@ await authyon.user(token).tenants.invites.create(tenantId, { email: "pessoa@exam
 
 // Página de aceite no seu backend: públicas, usam só o envKey.
 const preview = await authyon.environment.tenants.invites.preview(token);
-await authyon.environment.tenants.invites.accept({
+const accepted = await authyon.environment.tenants.invites.accept({
   token,
   password: preview.accountExists ? undefined : password,
 });
+if (accepted.redirectUri) redirect(accepted.redirectUri); // o redirect fica por sua conta
 ```
 
 O link vale 7 dias e uma única vez. `resend` gera um link novo e invalida o anterior.
-Por padrão o link aponta para a página do Authyon; configure a *URL do convite para
-tenant* nas configurações do ambiente para usar a sua (ela recebe `token` e `env`).
+Por padrão o link aponta para a página do Authyon; configure a _URL do convite para
+tenant_ nas configurações do ambiente para usar a sua (ela recebe `token` e `env`).
 Aceitar não faz login.
 
 ## Compatibilidade e segurança do transporte

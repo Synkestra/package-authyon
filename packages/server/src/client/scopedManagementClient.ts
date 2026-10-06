@@ -65,7 +65,12 @@ export class UserScopedClient {
       create: (tenantId: string, input: TenantInviteInput): Promise<TenantInviteIssued> =>
         this.#request(`/auth/tenants/${segment(tenantId)}/invites`, {
           method: "POST",
-          body: { email: input.email, roles: input.roles, sendEmail: input.sendEmail ?? true },
+          body: {
+            email: input.email,
+            roles: input.roles,
+            sendEmail: input.sendEmail ?? true,
+            redirectUri: input.redirectUri,
+          },
         }),
       /** New link (the previous one stops working), mailed unless `sendEmail` is `false`. */
       resend: (

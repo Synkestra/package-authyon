@@ -227,24 +227,24 @@ Métodos de sessão/auth ficam soltos no client; os que giram em torno de um rec
 
 ### `authyon.organization`
 
-| Método                                                | Endpoint                                       |
-| ----------------------------------------------------- | ---------------------------------------------- |
-| `organization.list({ search?, skip?, take? })`        | `GET /auth/tenants`                            |
-| `organization.create(params?)`                        | `POST /auth/tenants`                           |
-| `organization.get(organizationId)`                    | `GET /auth/tenants/{id}`                       |
-| `organization.rename(organizationId, name)`           | `PATCH /auth/tenants/{id}`                     |
-| `organization.switch(slug)`                           | `POST /auth/switch-tenant`                     |
-| `organization.current()`                              | — (lê `activeOrganization` da sessão em cache) |
-| `organization.members.list(organizationId, params?)`  | `GET /auth/tenants/{id}/members`               |
-| `organization.members.invite(organizationId, params)` | `POST /auth/tenants/{id}/members`              |
-| `organization.members.remove(organizationId, userId)` | `DELETE /auth/tenants/{id}/members/{userId}`   |
-| `organization.roles.list(organizationId)`             | `GET /auth/tenants/{id}/roles`                 |
-| `organization.invites.list(organizationId)`           | `GET /auth/tenants/{id}/invites`               |
-| `organization.invites.create(organizationId, params)` | `POST /auth/tenants/{id}/invites`              |
+| Método                                                           | Endpoint                                            |
+| ---------------------------------------------------------------- | --------------------------------------------------- |
+| `organization.list({ search?, skip?, take? })`                   | `GET /auth/tenants`                                 |
+| `organization.create(params?)`                                   | `POST /auth/tenants`                                |
+| `organization.get(organizationId)`                               | `GET /auth/tenants/{id}`                            |
+| `organization.rename(organizationId, name)`                      | `PATCH /auth/tenants/{id}`                          |
+| `organization.switch(slug)`                                      | `POST /auth/switch-tenant`                          |
+| `organization.current()`                                         | — (lê `activeOrganization` da sessão em cache)      |
+| `organization.members.list(organizationId, params?)`             | `GET /auth/tenants/{id}/members`                    |
+| `organization.members.invite(organizationId, params)`            | `POST /auth/tenants/{id}/members`                   |
+| `organization.members.remove(organizationId, userId)`            | `DELETE /auth/tenants/{id}/members/{userId}`        |
+| `organization.roles.list(organizationId)`                        | `GET /auth/tenants/{id}/roles`                      |
+| `organization.invites.list(organizationId)`                      | `GET /auth/tenants/{id}/invites`                    |
+| `organization.invites.create(organizationId, params)`            | `POST /auth/tenants/{id}/invites`                   |
 | `organization.invites.resend(organizationId, inviteId, params?)` | `POST /auth/tenants/{id}/invites/{inviteId}/resend` |
-| `organization.invites.revoke(organizationId, inviteId)` | `DELETE /auth/tenants/{id}/invites/{inviteId}` |
-| `organization.invites.preview(token)`                 | `POST /auth/tenant-invites/preview` (público)  |
-| `organization.invites.accept(params)`                 | `POST /auth/tenant-invites/accept` (público)   |
+| `organization.invites.revoke(organizationId, inviteId)`          | `DELETE /auth/tenants/{id}/invites/{inviteId}`      |
+| `organization.invites.preview(token)`                            | `POST /auth/tenant-invites/preview` (público)       |
+| `organization.invites.accept(params)`                            | `POST /auth/tenant-invites/accept` (público)        |
 
 `organization.members.invite` adiciona um usuário que já existe no ambiente. Para convidar
 um e-mail que talvez ainda não tenha conta, use `organization.invites.create`: a resposta
@@ -252,6 +252,9 @@ sempre traz o `acceptUrl` completo e `sendEmail: false` só gera o link, sem env
 O link vale 7 dias, uma única vez, e não pode ser lido de novo depois. Na página de aceite,
 leia o `token` da URL, chame `preview(token)` e, se `accountExists` for falso, peça senha
 (e usuário quando `usernameRequired`) antes de `accept`. Aceitar não faz login.
+Passe `redirectUri` no `create` para indicar para onde mandar a pessoa depois do aceite: ele
+precisa estar cadastrado (match exato) nos redirect URIs do ambiente e volta em `preview` e
+`accept` — a página hospedada da Authyon redireciona sozinha; numa página própria, é com você.
 
 ### `authyon.twoFactor`
 

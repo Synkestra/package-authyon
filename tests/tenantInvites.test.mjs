@@ -32,6 +32,7 @@ test("environment invites hit /env with the environment credential and default t
   await client.environment.tenants.invites.create("tenant/a", {
     email: "q@example.com",
     sendEmail: false,
+    redirectUri: "https://app.example.com/welcome",
   });
   await client.environment.tenants.invites.list("tenant/a");
   await client.environment.tenants.invites.resend("tenant/a", "invite/1", { sendEmail: false });
@@ -45,6 +46,7 @@ test("environment invites hit /env with the environment credential and default t
     sendEmail: true,
   });
   assert.equal(JSON.parse(linkOnly.body).sendEmail, false);
+  assert.equal(JSON.parse(linkOnly.body).redirectUri, "https://app.example.com/welcome");
   assert.equal(list.method, "GET");
   assert.equal(
     resend.url,

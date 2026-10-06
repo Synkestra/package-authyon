@@ -572,7 +572,12 @@ export class AuthyonClient {
         this.request(`/auth/tenants/${encodeURIComponent(organizationId)}/invites`, {
           method: "POST",
           bearer: true,
-          body: { email: params.email, roles: params.roles, sendEmail: params.sendEmail ?? true },
+          body: {
+            email: params.email,
+            roles: params.roles,
+            sendEmail: params.sendEmail ?? true,
+            redirectUri: params.redirectUri,
+          },
         }),
 
       /**

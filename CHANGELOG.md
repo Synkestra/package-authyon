@@ -16,7 +16,13 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
     `user(token).tenants.invites`.
   - Tipos `TenantInvite*`/`AcceptTenantInviteInput` (`@authyon/server`) e
     `OrganizationInvite*`/`AcceptOrganizationInviteInput` (`@authyon/auth`).
-- Requer a API com a migração `TenantInvites`.
+- `redirectUri` opcional na criação de convites de tenant: para onde mandar a pessoa depois
+  do aceite. Precisa estar na lista de redirect URIs do ambiente (match exato, a mesma do SSO
+  e do magic link) e volta em `preview`, `accept`, na listagem e no retorno da criação.
+- Convidar um endereço que já é membro do tenant não dá mais erro (aceitar só mescla os
+  papéis novos), e `resend` num convite já aceito emite um convite novo com o mesmo
+  e-mail, papéis e `redirectUri` (o `id` retornado é o do convite novo).
+- Requer a API com as migrações `TenantInvites` e `TenantInviteRedirectUri`.
 
 ## 0.2.0-beta.15
 

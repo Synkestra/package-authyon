@@ -583,7 +583,12 @@ export class AuthyonServerClient {
           this.request(`/env/tenants/${encodeURIComponent(tenantId)}/invites`, {
             method: "POST",
             envBearer: true,
-            body: { email: input.email, roles: input.roles, sendEmail: input.sendEmail ?? true },
+            body: {
+              email: input.email,
+              roles: input.roles,
+              sendEmail: input.sendEmail ?? true,
+              redirectUri: input.redirectUri,
+            },
           }),
 
         /** POST .../invites/{inviteId}/resend — new link (the previous one stops working), mailed unless `sendEmail` is `false`. */
@@ -862,7 +867,12 @@ export class TenantScopedClient {
     create: (input: TenantInviteInput): Promise<TenantInviteIssued> =>
       this.request("/tenant/invites", {
         method: "POST",
-        body: { email: input.email, roles: input.roles, sendEmail: input.sendEmail ?? true },
+        body: {
+          email: input.email,
+          roles: input.roles,
+          sendEmail: input.sendEmail ?? true,
+          redirectUri: input.redirectUri,
+        },
       }),
 
     /** POST /tenant/invites/{inviteId}/resend — new link (the previous one stops working), mailed unless `sendEmail` is `false`. */

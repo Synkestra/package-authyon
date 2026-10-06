@@ -51,6 +51,12 @@ export interface TenantInviteInput {
   email: string;
   roles?: string[];
   sendEmail?: boolean;
+  /**
+   * Where to send the invitee after they accept. Must be registered exactly in
+   * the environment's redirect URIs (the same list SSO and magic link use);
+   * otherwise the API rejects the invite. Comes back on `preview` and `accept`.
+   */
+  redirectUri?: string;
 }
 /** Returned when an invite is created or re-issued. `acceptUrl` is only ever
  *  readable here — the API keeps a hash of the token, not the token. */
@@ -62,6 +68,7 @@ export interface TenantInviteIssued {
   acceptUrl: string;
   expiresAt: string;
   emailSent: boolean;
+  redirectUri: string | null;
 }
 export type TenantInviteStatus = "pending" | "accepted" | "revoked" | "expired";
 export interface TenantInvite {
@@ -77,6 +84,7 @@ export interface TenantInvite {
   acceptedByUserId: string | null;
   revokedAt: string | null;
   invitedByUserId: string | null;
+  redirectUri: string | null;
 }
 /** What an accept page shows before the invitee commits. */
 export interface TenantInvitePreview {
@@ -88,6 +96,8 @@ export interface TenantInvitePreview {
   /** True: accepting only needs the token. False: send a password (and a username when `usernameRequired`). */
   accountExists: boolean;
   usernameRequired: boolean;
+  /** Where the issuer asked to send the invitee after accepting, or `null`. */
+  redirectUri: string | null;
 }
 /** Redeem an invite. Everything but `token` is ignored when the address already has an account. */
 export interface AcceptTenantInviteInput {
@@ -103,4 +113,6 @@ export interface TenantInviteAccepted {
   tenantName: string;
   userId: string;
   accountCreated: boolean;
+  /** Where the issuer asked to send the invitee, or `null`. Redirecting is up to the accept page. */
+  redirectUri: string | null;
 }
