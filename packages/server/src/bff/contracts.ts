@@ -46,6 +46,11 @@ export interface BffChallenge {
 export interface BffAuthProvider {
   login(input: BffLoginInput): Promise<BffTokens | BffChallenge>;
   verifyTwoFactor(input: BffVerifyTwoFactorInput): Promise<BffTokens>;
+  /**
+   * Resends the e-mail code of an in-flight login challenge. Optional so existing
+   * custom providers keep compiling; without it the handler answers 501.
+   */
+  resendTwoFactorEmail?(challengeToken: string): Promise<void>;
   refresh(refreshToken: string): Promise<BffTokens>;
   logout(refreshToken: string): Promise<void>;
   switchOrganization(accessToken: string, slug: string): Promise<BffTokens>;

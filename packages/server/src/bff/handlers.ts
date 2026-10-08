@@ -77,6 +77,16 @@ export function createBffSession(options: BffSessionOptions) {
       const tokens = await options.provider.verifyTwoFactor(input);
       return finishLogin(tokens, undefined, input.sessionPersistence);
     }),
+    /** Same guards as `verifyTwoFactor`; never creates a session or sets a cookie. */
+    resendTwoFactorEmail: handler("POST", async (request) => {
+      await assertSignedOut(request);
+      if (!options.provider.resendTwoFactorEmail) {
+        throw new BffSessionError("provider.unsupported_operation", 501);
+      }
+      const challengeToken = inputString(await readBffBody(request), "challengeToken");
+      await options.provider.resendTwoFactorEmail(challengeToken);
+      return http.response(null, { status: 204 });
+    }),
     session: handler("GET", async (request) =>
       http.response(publicSession(await manager.read(requiredSessionId(request)))),
     ),

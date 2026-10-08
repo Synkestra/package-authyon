@@ -83,6 +83,7 @@ export const POST = sessions.login;
 | --- | --- | --- | --- |
 | `/api/session/login` | POST | `sessions.login` | `email` ou `username`, `password`, `organizationSlug?`, `sessionPersistence?` |
 | `/api/session/two-factor` | POST | `sessions.verifyTwoFactor` | `challengeToken`, `method`, `code` ou `webAuthnAssertion`, `sessionPersistence?` |
+| `/api/session/two-factor/resend` | POST | `sessions.resendTwoFactorEmail` | `challengeToken` |
 | `/api/session` | GET | `sessions.session` | nenhum |
 | `/api/session/organization` | POST | `sessions.switchOrganization` | `organizationSlug` |
 | `/api/session/logout` | POST | `sessions.logout` | nenhum |
@@ -95,7 +96,14 @@ contém os tokens. Sem atividade, a expiração do Redis pode ocorrer antes da d
 cookie; a próxima consulta responde 401 e limpa o cookie.
 
 Uma resposta de desafio 2FA contém somente `twoFactorRequired`, `challengeToken`
-e `methods`; não cria sessão. O Authyon continua responsável pela validade e uso
+e `methods`; não cria sessão. Quando `methods` inclui `email`, o browser pode
+pedir um novo código com `sessions.resendTwoFactorEmail`: responde 204 sem
+corpo, não cria sessão nem emite cookie, exige as mesmas proteções de origem e
+CSRF das outras mutações e recusa com 409 um browser que já tem sessão. Falhas
+do Authyon chegam como `provider.rejected` (400, 401, 403 ou 429, com
+`Retry-After` quando houver). Um `BffAuthProvider` próprio sem
+`resendTwoFactorEmail` faz o handler responder 501
+`provider.unsupported_operation`. O Authyon continua responsável pela validade e uso
 único do desafio. Esta primeira integração não fornece início de SSO, cadastro,
 login por passkey ou início de cerimônia WebAuthn; os endpoints existentes do
 SDK continuam disponíveis. Não transporte seus resultados com tokens pelo

@@ -22,7 +22,7 @@ function request(method = "GET", cookie, body, extraHeaders = {}) {
 function fixture(options = {}) {
   let sequence = 0;
   const identities = new Map();
-  const calls = { refresh: 0, logout: 0, validate: 0 };
+  const calls = { refresh: 0, logout: 0, validate: 0, resend: [] };
   const store = options.store ?? createMemoryBffSessionStore();
   function issue(id = "alice", slug = "tenant-a") {
     const tokens = {
@@ -41,6 +41,9 @@ function fixture(options = {}) {
   const provider = {
     login: async (input) => issue(input.email?.split("@")[0]),
     verifyTwoFactor: async () => issue(),
+    resendTwoFactorEmail: async (challengeToken) => {
+      calls.resend.push(challengeToken);
+    },
     refresh: async () => {
       calls.refresh++;
       return issue();
@@ -372,6 +375,7 @@ test("all mutation handlers reject foreign Origin before provider calls", async 
   for (const handler of [
     f.bff.login,
     f.bff.verifyTwoFactor,
+    f.bff.resendTwoFactorEmail,
     f.bff.switchOrganization,
     f.bff.logout,
   ]) {
@@ -381,6 +385,7 @@ test("all mutation handlers reject foreign Origin before provider calls", async 
     );
   }
   assert.equal(f.calls.validate, 0);
+  assert.deepEqual(f.calls.resend, []);
 });
 
 test("mutations require the CSRF header, JSON and correct HTTP method", async () => {
@@ -445,6 +450,55 @@ test("two-factor challenge does not establish a session or expose arbitrary prov
   );
   assert.equal(completed.status, 200);
   assert.match(completed.headers.get("set-cookie"), /HttpOnly/);
+});
+
+test("two-factor e-mail resend forwards only the challenge and never sets a cookie", async () => {
+  const f = fixture();
+  const response = await f.bff.resendTwoFactorEmail(
+    request("POST", undefined, { challengeToken: "challenge", accessToken: "ignored" }),
+  );
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("set-cookie"), null);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(f.calls.resend, ["challenge"]);
+});
+
+test("two-factor e-mail resend validates input and refuses signed-in browsers", async () => {
+  const f = fixture();
+  assert.equal(
+    (await f.bff.resendTwoFactorEmail(request("POST", undefined, { challengeToken: "" }))).status,
+    400,
+  );
+  assert.equal((await f.bff.resendTwoFactorEmail(request("GET"))).status, 405);
+  const { cookie } = await f.login();
+  assert.equal(
+    (await f.bff.resendTwoFactorEmail(request("POST", cookie, { challengeToken: "challenge" })))
+      .status,
+    409,
+  );
+  assert.deepEqual(f.calls.resend, []);
+});
+
+test("two-factor e-mail resend maps provider failures without leaking upstream details", async () => {
+  const f = fixture();
+  f.provider.resendTwoFactorEmail = async () => {
+    throw new AuthyonError(429, { code: "user.2fa.rate_limited" }, { retryAfter: 30 });
+  };
+  const limited = await f.bff.resendTwoFactorEmail(
+    request("POST", undefined, { challengeToken: "challenge" }),
+  );
+  assert.equal(limited.status, 429);
+  assert.equal(limited.headers.get("retry-after"), "30");
+  assert.deepEqual(await limited.json(), { error: { code: "provider.rejected" } });
+
+  delete f.provider.resendTwoFactorEmail;
+  const unsupported = await createBffSession(f.bffOptions).resendTwoFactorEmail(
+    request("POST", undefined, { challengeToken: "challenge" }),
+  );
+  assert.equal(unsupported.status, 501);
+  assert.deepEqual(await unsupported.json(), {
+    error: { code: "provider.unsupported_operation" },
+  });
 });
 
 test("two-factor verification preserves the remembered session policy", async () => {

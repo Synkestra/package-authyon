@@ -116,6 +116,13 @@ export function createAuthyonBffProvider(options: AuthyonBffProviderOptions): Bf
         await http.request("/auth/2fa/verify", { method: "POST", headers, body: verification }),
       );
     },
+    async resendTwoFactorEmail(challengeToken) {
+      await http.request("/auth/2fa/resend-email", {
+        method: "POST",
+        headers,
+        body: { challengeToken },
+      });
+    },
     async refresh(refreshToken) {
       return readTokens(
         await http.request("/auth/refresh", { method: "POST", headers, body: { refreshToken } }),

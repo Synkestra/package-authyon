@@ -53,6 +53,29 @@ test("BFF provider reuses Authyon token endpoints and tenant wire naming", async
   assert.equal(profile.refreshToken, undefined);
 });
 
+test("BFF provider resends the two-factor e-mail with only the environment key", async () => {
+  const f = fixture([]);
+  f.requests.length = 0;
+  const provider = createAuthyonBffProvider({
+    envKey: "pk_test",
+    validator: f.validator,
+    httpAdapter: {
+      request: async (request) => {
+        f.requests.push(request);
+        return new globalThis.Response(null, { status: 204 });
+      },
+    },
+  });
+  assert.equal(await provider.resendTwoFactorEmail("challenge"), undefined);
+  assert.equal(f.requests.length, 1);
+  const [sent] = f.requests;
+  assert.equal(sent.method, "POST");
+  assert.equal(new globalThis.URL(sent.url).pathname, "/auth/2fa/resend-email");
+  assert.deepEqual(JSON.parse(sent.body), { challengeToken: "challenge" });
+  assert.equal(sent.headers["x-authyon-environment"], "pk_test");
+  assert.equal(sent.headers.authorization, undefined);
+});
+
 test("BFF requires an explicit upstream token lifetime", async () => {
   for (const expiresIn of [undefined, 0, -1, "60"]) {
     const f = fixture([{ ...tokens, expiresIn }]);

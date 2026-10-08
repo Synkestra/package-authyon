@@ -22,6 +22,12 @@ Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa
 - Convidar um endereço que já é membro do tenant não dá mais erro (aceitar só mescla os
   papéis novos), e `resend` num convite já aceito emite um convite novo com o mesmo
   e-mail, papéis e `redirectUri` (o `id` retornado é o do convite novo).
+- `@authyon/server/bff`: `sessions.resendTwoFactorEmail` reenvia o código de 2FA por
+  e-mail de um login em andamento (`POST /auth/2fa/resend-email`), com as mesmas
+  proteções de origem e CSRF dos outros handlers. Responde 204 e nunca cria sessão.
+  `BffAuthProvider` ganha o método opcional `resendTwoFactorEmail(challengeToken)`,
+  implementado por `createAuthyonBffProvider`; providers próprios sem ele continuam
+  compilando e o handler responde 501.
 - `@authyon/server`: `environment.tenants.invites.accept` aceita `publicMetadata` e
   `privateMetadata`. Quando algum deles é enviado, a chamada vai para
   `POST /env/tenant-invites/accept` com a credencial do ambiente (`authyon:users:write`);
