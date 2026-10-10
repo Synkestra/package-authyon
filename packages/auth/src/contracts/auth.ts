@@ -101,6 +101,32 @@ export interface OrganizationInvitePreview {
   redirectUri: string | null;
 }
 
+/** Options for POST /auth/password-reset/request. */
+export interface PasswordResetRequestOptions {
+  /**
+   * Where to send the person after they change the password. Must be
+   * registered exactly in the environment's redirect URIs (the same list SSO
+   * and magic link use); otherwise the request fails with
+   * `user.password_reset.redirect_uri.not_allowed`. Comes back on
+   * `validatePasswordReset` and `confirmPasswordReset`.
+   */
+  redirectUri?: string;
+}
+
+/** POST /auth/password-reset/validate — what a live reset token is for. */
+export interface PasswordResetPreview {
+  email: string;
+  expiresAt: string;
+  /** Where the reset was asked to end, or `null`. */
+  redirectUri: string | null;
+}
+
+/** POST /auth/password-reset/confirm — the password is changed. */
+export interface PasswordResetCompleted {
+  /** Where the reset was asked to end, or `null`. Navigating there is up to you. */
+  redirectUri: string | null;
+}
+
 /** POST /auth/tenant-invites/accept — everything but `token` is ignored when the address already has an account. */
 export interface AcceptOrganizationInviteInput {
   token: string;

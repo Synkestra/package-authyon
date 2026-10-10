@@ -30,6 +30,9 @@ import type {
   OrganizationInviteInput,
   OrganizationInviteIssued,
   OrganizationInvitePreview,
+  PasswordResetCompleted,
+  PasswordResetPreview,
+  PasswordResetRequestOptions,
   LoginInput,
   LoginResult,
   OrganizationMember,
@@ -456,16 +459,46 @@ export class AuthyonClient {
         bearer: true,
       }),
 
-    /** POST /auth/password-reset/request — always resolves (no account enumeration). */
-    requestPasswordReset: (email: string): Promise<void> =>
-      this.request("/auth/password-reset/request", { method: "POST", body: { email } }),
-
-    /** POST /auth/password-reset/confirm — sets a new password and revokes all refresh tokens. */
-    confirmPasswordReset: (token: string, newPassword: string): Promise<void> =>
-      this.request("/auth/password-reset/confirm", {
+    /**
+     * POST /auth/password-reset/request — resolves whether or not the address
+     * has an account (no account enumeration). `redirectUri` is where the
+     * person lands after changing the password; it must be one of the
+     * environment's registered redirect URIs, or the call rejects with
+     * `user.password_reset.redirect_uri.not_allowed`.
+     */
+    requestPasswordReset: (
+      email: string,
+      options: PasswordResetRequestOptions = {},
+    ): Promise<void> =>
+      this.request("/auth/password-reset/request", {
         method: "POST",
-        body: { token, newPassword },
+        body: { email, ...options },
       }),
+
+    /**
+     * POST /auth/password-reset/validate — checks a reset token without
+     * spending it, so the reset page can refuse a dead link before asking for
+     * a password. Rejects with `user.password_reset.invalid` (401) when the
+     * token is unknown, used or expired.
+     */
+    validatePasswordReset: (token: string): Promise<PasswordResetPreview> =>
+      this.request("/auth/password-reset/validate", { method: "POST", body: { token } }),
+
+    /**
+     * POST /auth/password-reset/confirm — sets a new password and revokes all
+     * refresh tokens. Resolves with the `redirectUri` the reset was requested
+     * with (`null` when there was none); following it is up to the caller.
+     */
+    confirmPasswordReset: async (
+      token: string,
+      newPassword: string,
+    ): Promise<PasswordResetCompleted> => {
+      const done = await this.request<{ redirectUri?: string | null } | undefined>(
+        "/auth/password-reset/confirm",
+        { method: "POST", body: { token, newPassword } },
+      );
+      return { redirectUri: done?.redirectUri ?? null };
+    },
   };
 
   // ── Organization ─────────────────────────────────────────────────────────

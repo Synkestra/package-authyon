@@ -216,14 +216,15 @@ Métodos de sessão/auth ficam soltos no client; os que giram em torno de um rec
 
 ### `authyon.user`
 
-| Método                                          | Endpoint                            |
-| ----------------------------------------------- | ----------------------------------- |
-| `user.me()`                                     | `GET /auth/me`                      |
-| `user.sessions()`                               | `GET /auth/sessions`                |
-| `user.revokeSession(sessionId)`                 | `DELETE /auth/sessions/{id}`        |
-| `user.activities(params?)`                      | `GET /auth/me/activities`           |
-| `user.requestPasswordReset(email)`              | `POST /auth/password-reset/request` |
-| `user.confirmPasswordReset(token, newPassword)` | `POST /auth/password-reset/confirm` |
+| Método                                          | Endpoint                             |
+| ----------------------------------------------- | ------------------------------------ |
+| `user.me()`                                     | `GET /auth/me`                       |
+| `user.sessions()`                               | `GET /auth/sessions`                 |
+| `user.revokeSession(sessionId)`                 | `DELETE /auth/sessions/{id}`         |
+| `user.activities(params?)`                      | `GET /auth/me/activities`            |
+| `user.requestPasswordReset(email, options?)`    | `POST /auth/password-reset/request`  |
+| `user.validatePasswordReset(token)`             | `POST /auth/password-reset/validate` |
+| `user.confirmPasswordReset(token, newPassword)` | `POST /auth/password-reset/confirm`  |
 
 ### `authyon.organization`
 

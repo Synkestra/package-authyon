@@ -426,6 +426,34 @@ Por padrão o link aponta para a página do Authyon; configure a _URL do convite
 tenant_ nas configurações do ambiente para usar a sua (ela recebe `token` e `env`).
 Aceitar não faz login.
 
+## Redefinição de senha pelo seu próprio e-mail
+
+Para a sua aplicação disparar o e-mail de redefinição em vez do Authyon, emita o token no
+backend (escopo `authyon:users:password`) e entregue você mesmo:
+
+```ts
+const reset = await authyon.environment.users.issuePasswordReset({
+  email: "pessoa@example.com",
+  // Opcional: para onde mandar a pessoa depois de trocar a senha. Precisa estar
+  // cadastrado (match exato) nos redirect URIs do ambiente.
+  redirectUri: "https://app.example.com/login",
+  // sendEmail: true faria o Authyon enviar também; o padrão é false.
+});
+reset.token; // só aparece aqui — a API guarda apenas o hash
+reset.resetUrl; // o link que o e-mail do Authyon levaria
+reset.expiresAt; // 30 minutos
+
+// Página de redefinição no seu backend: públicas, usam só o envKey.
+const preview = await authyon.environment.users.validatePasswordReset(token); // não gasta o token
+const done = await authyon.environment.users.confirmPasswordReset(token, newPassword);
+if (done.redirectUri) redirect(done.redirectUri); // o redirect fica por sua conta
+```
+
+Quem tem o token consegue definir a senha: envie somente para o endereço da própria conta e
+não registre em log. Emitir um token novo invalida o anterior da mesma conta. Um endereço
+sem conta responde `404 user.not_found`; token desconhecido, usado ou expirado responde
+`401 user.password_reset.invalid`.
+
 ## Compatibilidade e segurança do transporte
 
 As chamadas exigem os endpoints externos atuais da API e a migração

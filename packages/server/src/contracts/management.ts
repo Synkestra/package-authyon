@@ -58,6 +58,45 @@ export interface TenantInviteInput {
    */
   redirectUri?: string;
 }
+/** POST /env/password-resets — issue a reset for an account of the environment. */
+export interface IssuePasswordResetInput {
+  email: string;
+  /**
+   * Where to send the person after they change the password. Must be
+   * registered exactly in the environment's redirect URIs; otherwise the API
+   * rejects with `user.password_reset.redirect_uri.not_allowed`.
+   */
+  redirectUri?: string;
+  /**
+   * `true` has Authyon mail the link as well. Defaults to `false`: the point
+   * of this call is to deliver the token through your own e-mail.
+   */
+  sendEmail?: boolean;
+}
+/** Returned when a reset is issued. `token` is only ever readable here — the
+ *  API keeps its hash. Whoever holds it can set the password: send it only to
+ *  the account's own address and never log it. */
+export interface PasswordResetIssued {
+  userId: string;
+  email: string;
+  token: string;
+  /** The link Authyon's own e-mail would carry: the environment's reset page
+   *  when it has one, the hosted page otherwise. */
+  resetUrl: string;
+  expiresAt: string;
+  emailSent: boolean;
+  redirectUri: string | null;
+}
+/** What a live reset token is for. */
+export interface PasswordResetPreview {
+  email: string;
+  expiresAt: string;
+  redirectUri: string | null;
+}
+/** The password is changed. Following `redirectUri` is up to you. */
+export interface PasswordResetCompleted {
+  redirectUri: string | null;
+}
 /** Returned when an invite is created or re-issued. `acceptUrl` is only ever
  *  readable here — the API keeps a hash of the token, not the token. */
 export interface TenantInviteIssued {

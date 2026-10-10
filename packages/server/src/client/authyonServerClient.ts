@@ -6,6 +6,10 @@ import type {
   TenantInviteInput,
   TenantInviteIssued,
   TenantInvitePreview,
+  IssuePasswordResetInput,
+  PasswordResetCompleted,
+  PasswordResetIssued,
+  PasswordResetPreview,
   CreateCredentialInput,
   CredentialDetail,
   CredentialListOptions,
@@ -328,6 +332,47 @@ export class AuthyonServerClient {
           envBearer: true,
           body: { newPassword, reason },
         }),
+
+      /**
+       * POST /env/password-resets — issues a password-reset token for the
+       * account with this address and returns it, so your application can
+       * deliver it in its own e-mail instead of Authyon's. Needs the
+       * `authyon:users:password` scope. Unlike the public forgot-password
+       * request, an unknown address rejects with `user.not_found` (404).
+       * A previous live token for the same account stops working.
+       */
+      issuePasswordReset: (input: IssuePasswordResetInput): Promise<PasswordResetIssued> =>
+        this.request("/env/password-resets", {
+          method: "POST",
+          envBearer: true,
+          body: { ...input, sendEmail: input.sendEmail ?? false },
+        }),
+
+      /**
+       * POST /auth/password-reset/validate — for a backend hosting the reset
+       * page: checks a token without spending it. Public, needs only the
+       * `envKey`. Rejects with `user.password_reset.invalid` (401) when the
+       * token is unknown, used or expired.
+       */
+      validatePasswordReset: (token: string): Promise<PasswordResetPreview> =>
+        this.request("/auth/password-reset/validate", { method: "POST", body: { token } }),
+
+      /**
+       * POST /auth/password-reset/confirm — redeems the token and sets the new
+       * password (every session of the account is signed out). Public, needs
+       * only the `envKey`. Resolves with the `redirectUri` the reset was issued
+       * with, or `null`.
+       */
+      confirmPasswordReset: async (
+        token: string,
+        newPassword: string,
+      ): Promise<PasswordResetCompleted> => {
+        const done = await this.request<{ redirectUri?: string | null } | undefined>(
+          "/auth/password-reset/confirm",
+          { method: "POST", body: { token, newPassword } },
+        );
+        return { redirectUri: done?.redirectUri ?? null };
+      },
 
       /** POST /env/users/{userId}/sessions/revoke-all — revokes every session the user has. */
       revokeSessions: (userId: string, reason?: string): Promise<void> =>

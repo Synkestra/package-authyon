@@ -2,6 +2,43 @@
 
 Todas as mudanças relevantes deste projeto são registradas aqui. O projeto usa versionamento semântico e mantém `@authyon/auth` e `@authyon/server` na mesma versão.
 
+## 0.2.0-beta.18
+
+### Adicionado
+
+- Redefinição de senha com destino: `redirectUri` opcional ao pedir a redefinição diz para
+  onde mandar a pessoa depois de trocar a senha. Precisa estar na lista de redirect URIs do
+  ambiente (match exato, a mesma do SSO e do magic link); fora dela a API responde
+  `400 user.password_reset.redirect_uri.not_allowed`. Ele fica guardado no token e volta na
+  validação e na confirmação.
+  - `@authyon/auth`: `user.requestPasswordReset(email, { redirectUri })`.
+- Emissão do token de redefinição para o seu backend entregar pelo próprio e-mail, sem o
+  Authyon enviar nada:
+  - `@authyon/server`: `environment.users.issuePasswordReset({ email, redirectUri?, sendEmail? })`
+    (`POST /env/password-resets`, escopo `authyon:users:password`). Devolve `token`,
+    `resetUrl`, `expiresAt`, `userId`, `email`, `emailSent` e `redirectUri`. `sendEmail`
+    é `false` por padrão; `true` faz o Authyon enviar também. Endereço sem conta responde
+    `404 user.not_found`.
+- Consulta de um token de redefinição sem gastá-lo (`POST /auth/password-reset/validate`):
+  devolve `email`, `expiresAt` e `redirectUri`, ou `401 user.password_reset.invalid` quando
+  o token é desconhecido, já foi usado ou expirou.
+  - `@authyon/auth`: `user.validatePasswordReset(token)`.
+  - `@authyon/server`: `environment.users.validatePasswordReset(token)` e
+    `environment.users.confirmPasswordReset(token, newPassword)`, para o backend que
+    hospeda a página de redefinição (públicas, usam só o `envKey`).
+- Tipos `PasswordResetRequestOptions`, `PasswordResetPreview` e `PasswordResetCompleted`
+  (`@authyon/auth`); `IssuePasswordResetInput`, `PasswordResetIssued`, `PasswordResetPreview`
+  e `PasswordResetCompleted` (`@authyon/server`).
+
+### Alterado
+
+- `user.confirmPasswordReset` passa a resolver `{ redirectUri }` (`null` quando a
+  redefinição foi pedida sem destino) em vez de `void`. Quem ignorava o retorno não muda.
+- Convidar para um tenant um endereço que já é membro voltou a ser recusado pela API, com
+  `409 tenant.member.already_exists` (a beta.16 descrevia o contrário). `resend` num
+  convite já aceito só emite um convite novo se a pessoa tiver saído do tenant. Papéis de
+  quem já é membro são alterados no próprio membro.
+
 ## 0.2.0-beta.17
 
 ### Adicionado
